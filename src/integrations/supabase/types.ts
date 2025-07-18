@@ -14,7 +14,169 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          brand: string | null
+          company: string | null
+          created_at: string | null
+          email: string
+          id: number
+          name: string
+          phone: string | null
+          teamleader_id: string | null
+        }
+        Insert: {
+          brand?: string | null
+          company?: string | null
+          created_at?: string | null
+          email: string
+          id?: number
+          name: string
+          phone?: string | null
+          teamleader_id?: string | null
+        }
+        Update: {
+          brand?: string | null
+          company?: string | null
+          created_at?: string | null
+          email?: string
+          id?: number
+          name?: string
+          phone?: string | null
+          teamleader_id?: string | null
+        }
+        Relationships: []
+      }
+      email_history: {
+        Row: {
+          attachments: Json | null
+          body: string | null
+          created_at: string | null
+          customer_id: number | null
+          direction: string | null
+          id: number
+          subject: string | null
+        }
+        Insert: {
+          attachments?: Json | null
+          body?: string | null
+          created_at?: string | null
+          customer_id?: number | null
+          direction?: string | null
+          id?: number
+          subject?: string | null
+        }
+        Update: {
+          attachments?: Json | null
+          body?: string | null
+          created_at?: string | null
+          customer_id?: number | null
+          direction?: string | null
+          id?: number
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_history_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          customer_id: number | null
+          due_date: string | null
+          id: number
+          invoice_number: string
+          quote_id: number | null
+          status: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          customer_id?: number | null
+          due_date?: string | null
+          id?: number
+          invoice_number: string
+          quote_id?: number | null
+          status?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          customer_id?: number | null
+          due_date?: string | null
+          id?: number
+          invoice_number?: string
+          quote_id?: number | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quotes: {
+        Row: {
+          created_at: string | null
+          customer_id: number | null
+          discount: number | null
+          id: number
+          items: Json | null
+          pdf_url: string | null
+          quote_number: string
+          status: string | null
+          total_price: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_id?: number | null
+          discount?: number | null
+          id?: number
+          items?: Json | null
+          pdf_url?: string | null
+          quote_number: string
+          status?: string | null
+          total_price?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_id?: number | null
+          discount?: number | null
+          id?: number
+          items?: Json | null
+          pdf_url?: string | null
+          quote_number?: string
+          status?: string | null
+          total_price?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
