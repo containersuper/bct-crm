@@ -1,12 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Mail, Users, FileText, Receipt, Database } from "lucide-react";
+import { Mail, Users, FileText, Receipt, Database, BarChart3 } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
 
   const features = [
+    {
+      icon: BarChart3,
+      title: "Analytics Dashboard",
+      description: "Multi-brand analytics with revenue tracking and performance metrics",
+      path: "/dashboard"
+    },
     {
       icon: Mail,
       title: "Email Management",
