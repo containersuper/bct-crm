@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Mail, Users, FileText, Receipt } from "lucide-react";
+import { Mail, Users, FileText, Receipt, Database } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -14,10 +14,10 @@ const Index = () => {
       path: "/emails"
     },
     {
-      icon: Users,
-      title: "Customer Management",
-      description: "Manage customer data synced with TeamLeader",
-      path: "/customers"
+      icon: Database,
+      title: "CRM Integration",
+      description: "Sync customer data with TeamLeader CRM",
+      path: "/crm"
     },
     {
       icon: FileText,
