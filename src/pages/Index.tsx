@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Mail, Users, FileText, Receipt, Database, BarChart3 } from "lucide-react";
+import { Mail, Users, FileText, Receipt, Database, BarChart3, Layout } from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -18,6 +18,12 @@ const Index = () => {
       title: "Email Management",
       description: "Unified inbox for all brand emails with automated processing",
       path: "/emails"
+    },
+    {
+      icon: Layout,
+      title: "Email Templates",
+      description: "Create and manage email templates with multi-language support",
+      path: "/email-templates"
     },
     {
       icon: Database,

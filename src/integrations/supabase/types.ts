@@ -85,6 +85,142 @@ export type Database = {
           },
         ]
       }
+      email_template_performance: {
+        Row: {
+          conversions: number | null
+          created_at: string | null
+          date: string | null
+          emails_clicked: number | null
+          emails_opened: number | null
+          emails_sent: number | null
+          id: string
+          template_id: string
+        }
+        Insert: {
+          conversions?: number | null
+          created_at?: string | null
+          date?: string | null
+          emails_clicked?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          id?: string
+          template_id: string
+        }
+        Update: {
+          conversions?: number | null
+          created_at?: string | null
+          date?: string | null
+          emails_clicked?: number | null
+          emails_opened?: number | null
+          emails_sent?: number | null
+          id?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_performance_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_template_versions: {
+        Row: {
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          subject: string
+          template_id: string
+          variables: Json | null
+          version: number
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          subject: string
+          template_id: string
+          variables?: Json | null
+          version: number
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          subject?: string
+          template_id?: string
+          variables?: Json | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_template_versions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "email_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_templates: {
+        Row: {
+          ab_test_group: string | null
+          brand: string
+          content: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_ab_test: boolean | null
+          is_active: boolean | null
+          language: Database["public"]["Enums"]["supported_language"]
+          name: string
+          subject: string
+          type: Database["public"]["Enums"]["email_template_type"]
+          updated_at: string | null
+          variables: Json | null
+          version: number | null
+        }
+        Insert: {
+          ab_test_group?: string | null
+          brand: string
+          content: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_ab_test?: boolean | null
+          is_active?: boolean | null
+          language?: Database["public"]["Enums"]["supported_language"]
+          name: string
+          subject: string
+          type: Database["public"]["Enums"]["email_template_type"]
+          updated_at?: string | null
+          variables?: Json | null
+          version?: number | null
+        }
+        Update: {
+          ab_test_group?: string | null
+          brand?: string
+          content?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_ab_test?: boolean | null
+          is_active?: boolean | null
+          language?: Database["public"]["Enums"]["supported_language"]
+          name?: string
+          subject?: string
+          type?: Database["public"]["Enums"]["email_template_type"]
+          updated_at?: string | null
+          variables?: Json | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           amount: number | null
@@ -185,7 +321,12 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      email_template_type:
+        | "new_quote"
+        | "follow_up"
+        | "quote_accepted"
+        | "invoice"
+      supported_language: "en" | "de" | "fr" | "nl"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -312,6 +453,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      email_template_type: [
+        "new_quote",
+        "follow_up",
+        "quote_accepted",
+        "invoice",
+      ],
+      supported_language: ["en", "de", "fr", "nl"],
+    },
   },
 } as const
