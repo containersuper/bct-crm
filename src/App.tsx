@@ -23,7 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/emails" element={<EmailManagement />} />
-          <Route path="/email-templates" element={<EmailTemplates />} />
+          <Route path="/templates" element={<EmailTemplates />} />
           <Route path="/quotes" element={<QuoteManagement />} />
           <Route path="/crm" element={<CRMIntegration />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

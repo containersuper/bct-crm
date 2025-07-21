@@ -32,6 +32,12 @@ const Index = () => {
       path: "/crm"
     },
     {
+      icon: Mail,
+      title: "Email Templates",
+      description: "Create and manage email templates with multi-language support",
+      path: "/templates"
+    },
+    {
       icon: FileText,
       title: "Quote Generation",
       description: "Create and send professional quotes with PDF generation",
