@@ -47,33 +47,93 @@ export type Database = {
         }
         Relationships: []
       }
+      email_accounts: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          email: string
+          id: string
+          is_active: boolean | null
+          provider: string
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          email: string
+          id?: string
+          is_active?: boolean | null
+          provider: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean | null
+          provider?: string
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       email_history: {
         Row: {
           attachments: Json | null
           body: string | null
+          brand: string | null
           created_at: string | null
           customer_id: number | null
           direction: string | null
+          external_id: string | null
+          from_address: string | null
           id: number
+          processed: boolean | null
+          received_at: string | null
           subject: string | null
+          thread_id: string | null
+          to_address: string | null
         }
         Insert: {
           attachments?: Json | null
           body?: string | null
+          brand?: string | null
           created_at?: string | null
           customer_id?: number | null
           direction?: string | null
+          external_id?: string | null
+          from_address?: string | null
           id?: number
+          processed?: boolean | null
+          received_at?: string | null
           subject?: string | null
+          thread_id?: string | null
+          to_address?: string | null
         }
         Update: {
           attachments?: Json | null
           body?: string | null
+          brand?: string | null
           created_at?: string | null
           customer_id?: number | null
           direction?: string | null
+          external_id?: string | null
+          from_address?: string | null
           id?: number
+          processed?: boolean | null
+          received_at?: string | null
           subject?: string | null
+          thread_id?: string | null
+          to_address?: string | null
         }
         Relationships: [
           {

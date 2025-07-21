@@ -1,1 +1,28 @@
 project_id = "xetonwascehmtslrwvpd"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+site_url = "https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[functions.gmail-auth]
+verify_jwt = false
+
+[functions.fetch-emails]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
