@@ -3,34 +3,66 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { Navigation } from "@/components/layout/Navigation";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import EmailManagement from "./pages/EmailManagement";
 import EmailTemplates from "./pages/EmailTemplates";
 import QuoteManagement from "./pages/QuoteManagement";
 import CRMIntegration from "./pages/CRMIntegration";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/emails" element={<EmailManagement />} />
-          <Route path="/templates" element={<EmailTemplates />} />
-          <Route path="/quotes" element={<QuoteManagement />} />
-          <Route path="/crm" element={<CRMIntegration />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <div className="flex">
+            <Navigation />
+            <main className="flex-1 ml-64">
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/dashboard" element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="/emails" element={
+                  <ProtectedRoute>
+                    <EmailManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/templates" element={
+                  <ProtectedRoute>
+                    <EmailTemplates />
+                  </ProtectedRoute>
+                } />
+                <Route path="/quotes" element={
+                  <ProtectedRoute>
+                    <QuoteManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/crm" element={
+                  <ProtectedRoute>
+                    <CRMIntegration />
+                  </ProtectedRoute>
+                } />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

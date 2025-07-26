@@ -2,9 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Mail, Users, FileText, Receipt, Database, BarChart3, Layout } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const features = [
     {
@@ -60,6 +62,24 @@ const Index = () => {
             Streamline your business operations with our integrated email management, 
             customer tracking, and invoice generation system.
           </p>
+          {!user && (
+            <div className="mt-6">
+              <Button 
+                onClick={() => navigate("/auth")}
+                size="lg"
+                className="mr-4"
+              >
+                Sign In
+              </Button>
+              <Button 
+                onClick={() => navigate("/auth")}
+                variant="outline"
+                size="lg"
+              >
+                Get Started
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 max-w-4xl mx-auto">
