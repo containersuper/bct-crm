@@ -46,16 +46,29 @@ export const EmailConnectionGuide = ({
 
       // Listen for messages from popup
       const handleMessage = async (event: MessageEvent) => {
-        if (event.origin !== window.location.origin) return;
+        console.log('=== OAUTH CALLBACK MESSAGE ===');
+        console.log('Event origin:', event.origin);
+        console.log('Window origin:', window.location.origin);
+        console.log('Event data:', event.data);
+        
+        if (event.origin !== window.location.origin) {
+          console.log('Origin mismatch, ignoring message');
+          return;
+        }
         
         if (event.data.type === 'gmail-oauth-result') {
+          console.log('Processing OAuth result...');
           window.removeEventListener('message', handleMessage);
           
           if (event.data.error) {
-            console.error('OAuth error:', event.data.error);
+            console.error('OAuth error from popup:', event.data.error);
             toast.error('Authentication was cancelled or failed');
           } else if (event.data.code) {
+            console.log('Got authorization code, calling handleOAuthCallback...');
             await handleOAuthCallback(event.data.code, user.id);
+          } else {
+            console.error('No code or error in OAuth result:', event.data);
+            toast.error('Invalid OAuth response');
           }
         }
       };
