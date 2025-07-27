@@ -62,11 +62,17 @@ serve(async (req) => {
       });
 
       const tokens = await tokenResponse.json();
-      console.log('Received tokens:', { ...tokens, access_token: '[REDACTED]', refresh_token: '[REDACTED]' });
+      console.log('Token response status:', tokenResponse.status);
+      console.log('Received tokens:', { ...tokens, access_token: tokens.access_token ? '[REDACTED]' : 'MISSING', refresh_token: tokens.refresh_token ? '[REDACTED]' : 'MISSING' });
+
+      if (!tokenResponse.ok) {
+        console.error('Token exchange HTTP error:', tokenResponse.status, tokens);
+        throw new Error(`Token exchange failed with status ${tokenResponse.status}: ${tokens.error_description || tokens.error || 'Unknown error'}`);
+      }
 
       if (!tokens.access_token) {
-        console.error('Token exchange failed:', tokens);
-        throw new Error(tokens.error_description || 'Failed to obtain access token');
+        console.error('Token exchange failed - no access token:', tokens);
+        throw new Error(tokens.error_description || tokens.error || 'Failed to obtain access token');
       }
 
       // Get user email from Google API
