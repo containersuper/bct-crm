@@ -46,7 +46,7 @@ export const EmailInbox = () => {
       const { data, error } = await supabase
         .from('email_history')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('received_at', { ascending: false });
 
       if (error) throw error;
 
