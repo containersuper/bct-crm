@@ -47,12 +47,14 @@ export const EmailInbox = () => {
   const fetchEmails = async () => {
     try {
       setLoading(true);
+      console.log('Fetching emails with limit 2000...');
       const { data, error } = await supabase
         .from('email_history')
         .select('*')
         .order('received_at', { ascending: false })
-        .limit(1000); // Increase limit to 1000 emails
+        .limit(2000); // Increase to 2000
 
+      console.log(`Fetched ${data?.length || 0} emails`);
       if (error) throw error;
 
       // Transform data and add mock fields for demo
