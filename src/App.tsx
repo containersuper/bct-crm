@@ -57,6 +57,7 @@ const App = () => (
                   </ProtectedRoute>
                 } />
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
+                <Route path="/auth/callback/gmail" element={<GmailOAuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
