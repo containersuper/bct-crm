@@ -20,8 +20,8 @@ serve(async (req) => {
     const { action } = await req.json();
 
     if (action === 'auth-url') {
-      // Get the current origin from environment or construct it
-      const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI') || `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
+      // Use the correct redirect URI for the app
+      const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
       // Gmail OAuth URL generieren
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -46,7 +46,7 @@ serve(async (req) => {
       
       console.log('Processing OAuth callback for user:', userId);
       
-      const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI') || `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
+      const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
       // Token austauschen
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
