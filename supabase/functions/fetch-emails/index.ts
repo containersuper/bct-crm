@@ -17,11 +17,11 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { brand, provider = 'gmail', userId, maxResults = 50 } = await req.json();
+    const { brand, provider = 'gmail', userId, maxResults = 50, sinceDate, accountId } = await req.json();
 
-    console.log('Fetching emails for user:', userId, 'brand:', brand, 'provider:', provider);
+    console.log('Fetching emails for user:', userId, 'brand:', brand, 'provider:', provider, 'sinceDate:', sinceDate);
 
-    // Email Account Credentials holen
+    // Get email account credentials
     const { data: account, error: accountError } = await supabase
       .from('email_accounts')
       .select('*')
@@ -40,39 +40,66 @@ serve(async (req) => {
     }
 
     let emails = [];
+    let quotaUsed = 0;
 
     if (provider === 'gmail') {
-      // Check if token needs refresh
+      // Refresh access token if expired
       if (account.token_expires_at && new Date(account.token_expires_at) <= new Date()) {
-        console.log('Token expired, refreshing...');
-        // Call refresh token function
-        await supabase.functions.invoke('gmail-auth', {
-          body: { action: 'refresh-token', userId }
-        });
+        console.log('Token expired, refreshing...')
         
-        // Get updated account
-        const { data: updatedAccount } = await supabase
+        const { data: refreshResult, error: refreshError } = await supabase.functions.invoke('gmail-auth', {
+          body: { 
+            action: 'refresh',
+            refresh_token: account.refresh_token,
+            user_id: userId 
+          }
+        })
+
+        if (refreshError || !refreshResult) {
+          console.error('Token refresh failed:', refreshError)
+          return new Response(JSON.stringify({ error: 'Token refresh failed' }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
+
+        // Update the access token in database
+        await supabase
           .from('email_accounts')
-          .select('*')
+          .update({
+            access_token: refreshResult.access_token,
+            token_expires_at: refreshResult.expires_at
+          })
           .eq('id', account.id)
-          .single();
-        
-        if (updatedAccount) {
-          account.access_token = updatedAccount.access_token;
+
+        // Update local object
+        account.access_token = refreshResult.access_token
+        if (refreshResult.expires_at) {
+          account.token_expires_at = refreshResult.expires_at
         }
       }
 
-      // Build Gmail search query with improved brand detection
-      let query = 'in:inbox';
-      if (brand && brand !== 'all') {
-        const brandQuery = `to:${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        query += ` ${brandQuery}`;
+      // Build Gmail API query for incremental sync
+      let query = `in:inbox`
+      
+      // Add date filter for incremental sync
+      if (sinceDate) {
+        const since = new Date(sinceDate)
+        const formattedDate = since.toISOString().split('T')[0].replace(/-/g, '/')
+        query += ` after:${formattedDate}`
+        console.log(`Incremental sync since: ${formattedDate}`)
+      }
+      
+      if (brand && brand !== 'General') {
+        // Add brand-specific filtering
+        query += ` (to:${brand.toLowerCase()}@* OR to:support@${brand.toLowerCase()}.* OR to:info@${brand.toLowerCase()}.*)`
       }
 
       console.log('Gmail query:', query);
 
-      // Gmail API aufrufen with better error handling
+      // Call Gmail API with error handling
       const messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=${encodeURIComponent(query)}`;
+      quotaUsed += 1; // List messages costs 1 quota unit
       
       const response = await fetch(messagesUrl, {
         headers: {
@@ -94,9 +121,9 @@ serve(async (req) => {
       }
 
       const { messages } = await response.json();
-      console.log('Found messages:', messages?.length || 0);
+      console.log(`Found ${messages?.length || 0} messages to process`)
 
-      // Email Details abrufen
+      // Process email details
       for (const message of messages || []) {
         try {
           const detailResponse = await fetch(
@@ -109,39 +136,40 @@ serve(async (req) => {
           );
 
           if (!detailResponse.ok) {
-            console.warn('Failed to fetch message details for:', message.id);
+            console.warn(`Failed to fetch email ${message.id}:`, detailResponse.status)
             continue;
           }
 
-          const detail = await detailResponse.json();
-          const headers = detail.payload?.headers || [];
+          const messageData = await detailResponse.json();
+          quotaUsed += 5; // Estimate 5 quota units per email fetch
 
+          const headers = messageData.payload?.headers || [];
           const fromHeader = headers.find((h: any) => h.name.toLowerCase() === 'from')?.value || '';
           const toHeader = headers.find((h: any) => h.name.toLowerCase() === 'to')?.value || '';
           const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject')?.value || '';
           const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date')?.value || '';
 
-          // Extract email body
-          let emailBody = detail.snippet || '';
-          if (detail.payload?.body?.data) {
+          // Extract email body with better handling
+          let emailBody = messageData.snippet || '';
+          if (messageData.payload?.body?.data) {
             try {
-              emailBody = atob(detail.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+              emailBody = atob(messageData.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
             } catch (e) {
-              console.warn('Failed to decode email body for message:', detail.id);
+              console.warn('Failed to decode email body for message:', messageData.id);
             }
           }
 
           emails.push({
-            id: detail.id,
+            id: messageData.id,
             subject: subjectHeader,
             from: fromHeader,
             to: toHeader,
             date: dateHeader,
             snippet: emailBody,
             brand: detectBrand(toHeader),
-            threadId: detail.threadId,
-            labelIds: detail.labelIds || [],
-            isUnread: detail.labelIds?.includes('UNREAD') || false,
+            threadId: messageData.threadId,
+            labelIds: messageData.labelIds || [],
+            isUnread: messageData.labelIds?.includes('UNREAD') || false,
           });
         } catch (error) {
           console.warn('Error processing message:', message.id, error);
@@ -149,9 +177,9 @@ serve(async (req) => {
       }
     }
 
-    console.log('Processed emails:', emails.length);
+    console.log(`Processed ${emails.length} emails with ${quotaUsed} quota units used`);
 
-    // Emails in Supabase speichern/aktualisieren
+    // Save emails to database with duplicate checking
     for (const email of emails) {
       try {
         const emailDate = email.date ? new Date(email.date) : new Date();
@@ -194,24 +222,38 @@ serve(async (req) => {
       }
     }
 
-    return new Response(
-      JSON.stringify({ 
-        emails, 
-        count: emails.length,
-        account: {
-          email: account.email,
-          provider: account.provider
-        }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    // Update quota usage if accountId provided (for cron sync)
+    if (accountId && quotaUsed > 0) {
+      await supabase
+        .from('email_accounts')
+        .update({ 
+          quota_usage: supabase.raw(`quota_usage + ${quotaUsed}`)
+        })
+        .eq('id', accountId);
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      emails,
+      count: emails.length,
+      quotaUsed,
+      account: {
+        email: account.email,
+        provider: account.provider
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
     console.error('Fetch emails error:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-    );
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: 'Email fetch failed'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 });
 
