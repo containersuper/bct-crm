@@ -52,21 +52,42 @@ serve(async (req) => {
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
       // Token austauschen
+      console.log('=== TOKEN EXCHANGE DEBUG ===');
+      console.log('Code received:', code ? 'YES' : 'NO');
+      console.log('User ID:', userId);
+      console.log('Redirect URI for token exchange:', redirectUri);
+      
+      const tokenRequestBody = new URLSearchParams({
+        code,
+        client_id: Deno.env.get('GMAIL_CLIENT_ID') ?? '',
+        client_secret: Deno.env.get('GMAIL_CLIENT_SECRET') ?? '',
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      });
+      
+      console.log('Token request body:', tokenRequestBody.toString());
+      
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code,
-          client_id: Deno.env.get('GMAIL_CLIENT_ID') ?? '',
-          client_secret: Deno.env.get('GMAIL_CLIENT_SECRET') ?? '',
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-        }),
+        body: tokenRequestBody,
       });
 
-      const tokens = await tokenResponse.json();
       console.log('Token response status:', tokenResponse.status);
-      console.log('Received tokens:', { ...tokens, access_token: tokens.access_token ? '[REDACTED]' : 'MISSING', refresh_token: tokens.refresh_token ? '[REDACTED]' : 'MISSING' });
+      console.log('Token response headers:', Object.fromEntries(tokenResponse.headers.entries()));
+      
+      const tokenResponseText = await tokenResponse.text();
+      console.log('Raw token response:', tokenResponseText);
+      
+      let tokens;
+      try {
+        tokens = JSON.parse(tokenResponseText);
+      } catch (e) {
+        console.error('Failed to parse token response as JSON:', e);
+        throw new Error(`Invalid JSON response from Google: ${tokenResponseText}`);
+      }
+      
+      console.log('Parsed tokens:', { ...tokens, access_token: tokens.access_token ? '[REDACTED]' : 'MISSING', refresh_token: tokens.refresh_token ? '[REDACTED]' : 'MISSING' });
 
       if (!tokenResponse.ok) {
         console.error('Token exchange HTTP error:', tokenResponse.status, tokens);
