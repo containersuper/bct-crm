@@ -20,7 +20,7 @@ serve(async (req) => {
     const { action } = await req.json();
 
     if (action === 'auth-url') {
-      // Use the correct redirect URI for the app
+      // Use the app callback URL, not the edge function URL
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
       // Gmail OAuth URL generieren
