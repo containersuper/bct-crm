@@ -17,9 +17,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { brand, provider = 'gmail', userId, maxResults = 50, sinceDate, accountId } = await req.json();
+    const { 
+      brand, 
+      provider = 'gmail', 
+      userId, 
+      maxResults = 50, 
+      sinceDate, 
+      accountId,
+      mode = 'incremental', // 'incremental' or 'backfill'
+      backfillStartDate,
+      backfillEndDate,
+      pageToken 
+    } = await req.json();
 
-    console.log('Fetching emails for user:', userId, 'brand:', brand, 'provider:', provider, 'sinceDate:', sinceDate);
+    console.log('Fetching emails for user:', userId, 'mode:', mode, 'provider:', provider);
 
     // Get email account credentials
     const { data: account, error: accountError } = await supabase
@@ -41,6 +52,7 @@ serve(async (req) => {
 
     let emails = [];
     let quotaUsed = 0;
+    let nextPageToken = null;
 
     if (provider === 'gmail') {
       // Refresh access token if expired
@@ -79,11 +91,25 @@ serve(async (req) => {
         }
       }
 
-      // Get last sync timestamp for incremental sync
-      const lastSync = account.last_sync_timestamp ? new Date(account.last_sync_timestamp) : null;
-      const sinceDateStr = lastSync ? Math.floor(lastSync.getTime() / 1000) : Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000); // 7 days ago if no last sync
+      // Build Gmail query based on mode
+      let query = '';
       
-      let query = `after:${sinceDateStr}`;
+      if (mode === 'backfill' && backfillStartDate && backfillEndDate) {
+        // Backfill mode: use specific date range
+        const startUnix = Math.floor(new Date(backfillStartDate).getTime() / 1000);
+        const endUnix = Math.floor(new Date(backfillEndDate).getTime() / 1000);
+        query = `after:${startUnix} before:${endUnix}`;
+        
+        console.log('Backfill mode:', backfillStartDate, 'to', backfillEndDate);
+      } else {
+        // Incremental mode: use last sync timestamp
+        const lastSync = account.last_sync_timestamp ? new Date(account.last_sync_timestamp) : null;
+        const sinceDateStr = lastSync ? Math.floor(lastSync.getTime() / 1000) : Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+        query = `after:${sinceDateStr}`;
+        
+        console.log('Incremental mode since:', new Date(sinceDateStr * 1000));
+      }
+      
       if (brand && brand !== 'General') {
         query += ` ${brand}`;
       }
@@ -91,8 +117,12 @@ serve(async (req) => {
 
       console.log('Gmail query:', query);
 
-      // Call Gmail API with error handling
-      const messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=${encodeURIComponent(query)}`;
+      // Build API URL with pagination support
+      let messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=${encodeURIComponent(query)}`;
+      if (pageToken) {
+        messagesUrl += `&pageToken=${pageToken}`;
+      }
+      
       quotaUsed += 1; // List messages costs 1 quota unit
       
       const response = await fetch(messagesUrl, {
@@ -114,12 +144,30 @@ serve(async (req) => {
         }
       }
 
-      const { messages } = await response.json();
+      const responseData = await response.json();
+      const { messages, nextPageToken: newNextPageToken } = responseData;
+      nextPageToken = newNextPageToken;
+      
       console.log(`Found ${messages?.length || 0} messages to process`)
 
-      // Process email details
+      // Check for existing emails in batch to optimize performance
+      const messageIds = (messages || []).map((m: any) => m.id);
+      const { data: existingEmails } = await supabase
+        .from('email_history')
+        .select('external_id')
+        .in('external_id', messageIds);
+      
+      const existingIds = new Set(existingEmails?.map(e => e.external_id) || []);
+
+      // Process email details for new emails only
       for (const message of messages || []) {
         try {
+          // Skip if email already exists
+          if (existingIds.has(message.id)) {
+            console.log('Email already exists, skipping:', message.id);
+            continue;
+          }
+
           const detailResponse = await fetch(
             `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}`,
             {
@@ -171,60 +219,52 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Processed ${emails.length} emails with ${quotaUsed} quota units used`);
+    console.log(`Processed ${emails.length} new emails with ${quotaUsed} quota units used`);
 
-    // Save emails to database with duplicate checking
-    for (const email of emails) {
-      try {
-        const emailDate = email.date ? new Date(email.date) : new Date();
-        
-        // Check if email already exists
-        const { data: existingEmail } = await supabase
-          .from('email_history')
-          .select('id')
-          .eq('external_id', email.id)
-          .maybeSingle();
+    // Batch insert emails to database for better performance
+    if (emails.length > 0) {
+      const emailsToInsert = emails.map(email => ({
+        external_id: email.id,
+        subject: email.subject,
+        from_address: email.from,
+        to_address: email.to,
+        body: email.snippet,
+        brand: email.brand,
+        received_at: email.date ? new Date(email.date).toISOString() : new Date().toISOString(),
+        direction: 'incoming',
+        processed: false,
+        thread_id: email.threadId,
+        attachments: null,
+      }));
 
-        if (!existingEmail) {
-          // Insert new email
-          const { error: insertError } = await supabase
-            .from('email_history')
-            .insert({
-              external_id: email.id,
-              subject: email.subject,
-              from_address: email.from,
-              to_address: email.to,
-              body: email.snippet,
-              brand: email.brand,
-              received_at: emailDate.toISOString(),
-              direction: 'incoming',
-              processed: false,
-              thread_id: email.threadId,
-              attachments: null,
-            });
+      const { error: insertError } = await supabase
+        .from('email_history')
+        .insert(emailsToInsert);
 
-          if (insertError) {
-            console.error('Error inserting email:', email.id, insertError);
-          } else {
-            console.log('Successfully inserted email:', email.id);
-          }
-        } else {
-          console.log('Email already exists:', email.id);
-        }
-      } catch (error) {
-        console.error('Error saving email to database:', email.id, error);
+      if (insertError) {
+        console.error('Error batch inserting emails:', insertError);
+        throw new Error('Failed to save emails to database');
       }
+
+      console.log(`Successfully batch inserted ${emails.length} emails`);
     }
 
-    // Update last sync timestamp and reset error count on successful sync
+    // Update account sync status and timestamps
+    const updateData: any = {
+      quota_usage: (account.quota_usage || 0) + quotaUsed,
+      sync_error_count: 0,
+      last_sync_error: null
+    };
+
+    if (mode === 'incremental') {
+      updateData.last_sync_timestamp = new Date().toISOString();
+    } else if (mode === 'backfill') {
+      updateData.last_backfill_timestamp = new Date().toISOString();
+    }
+
     await supabase
       .from('email_accounts')
-      .update({ 
-        last_sync_timestamp: new Date().toISOString(),
-        sync_error_count: 0,
-        last_sync_error: null,
-        quota_usage: (account.quota_usage || 0) + quotaUsed
-      })
+      .update(updateData)
       .eq('id', account.id);
 
     console.log(`Fetched ${emails.length} emails for user ${userId}`);
@@ -233,6 +273,8 @@ serve(async (req) => {
       emails,
       count: emails.length,
       quotaUsed,
+      nextPageToken,
+      hasMore: !!nextPageToken,
       account: { 
         provider: account.provider, 
         email: account.email 

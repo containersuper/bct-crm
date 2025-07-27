@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { RefreshCw, CheckCircle, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { EmailBackfillManager } from './EmailBackfillManager';
 
 interface EmailAccount {
   id: string;
@@ -28,6 +29,7 @@ export const EmailSyncStatus = ({ onSync, isLoading }: EmailSyncStatusProps) => 
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncDetails, setSyncDetails] = useState<string>('');
+  const [showBackfillManager, setShowBackfillManager] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -210,15 +212,25 @@ export const EmailSyncStatus = ({ onSync, isLoading }: EmailSyncStatusProps) => 
       <CardContent className="pt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Email Sync Status</h3>
-          <Button
-            onClick={handleSync}
-            disabled={isLoading || accounts.length === 0 || syncProgress > 0}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className={`h-4 w-4 ${(isLoading || syncProgress > 0) ? 'animate-spin' : ''}`} />
-            Sync Now
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSync}
+              disabled={isLoading || accounts.length === 0 || syncProgress > 0}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${(isLoading || syncProgress > 0) ? 'animate-spin' : ''}`} />
+              Sync Now
+            </Button>
+            <Button
+              onClick={() => setShowBackfillManager(!showBackfillManager)}
+              size="sm"
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              📁 Historical
+            </Button>
+          </div>
         </div>
 
         {syncProgress > 0 && (
@@ -295,6 +307,13 @@ export const EmailSyncStatus = ({ onSync, isLoading }: EmailSyncStatusProps) => 
             </>
           )}
         </div>
+        
+        {/* Historical Email Backfill Manager */}
+        {showBackfillManager && (
+          <div className="mt-6">
+            <EmailBackfillManager />
+          </div>
+        )}
       </CardContent>
     </Card>
   );

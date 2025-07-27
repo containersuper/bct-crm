@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.sync-emails-cron]
 verify_jwt = false
+
+[functions.email-backfill]
+verify_jwt = false
