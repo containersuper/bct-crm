@@ -18,12 +18,11 @@ serve(async (req) => {
     );
 
     const { action } = await req.json();
+    console.log('Gmail auth action:', action);
 
     if (action === 'auth-url') {
-      // Use the app callback URL, not the edge function URL
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
-      // Gmail OAuth URL generieren
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${Deno.env.get('GMAIL_CLIENT_ID')}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -32,11 +31,7 @@ serve(async (req) => {
         `access_type=offline&` +
         `prompt=consent`;
 
-      console.log('=== DEBUG: Generated auth URL ===');
-      console.log('Auth URL:', authUrl);
-      console.log('Redirect URI being used:', redirectUri);
-      console.log('Client ID:', Deno.env.get('GMAIL_CLIENT_ID'));
-      console.log('=== END DEBUG ===');
+      console.log('Generated auth URL with redirect:', redirectUri);
 
       return new Response(
         JSON.stringify({ authUrl }),
@@ -47,56 +42,39 @@ serve(async (req) => {
     if (action === 'callback') {
       const { code, userId } = await req.json();
       
-      console.log('Processing OAuth callback for user:', userId);
+      console.log('=== CALLBACK PROCESSING ===');
+      console.log('Code received:', code ? 'YES' : 'NO');
+      console.log('User ID:', userId);
       
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
-      // Token austauschen
-      console.log('=== TOKEN EXCHANGE DEBUG ===');
-      console.log('Code received:', code ? 'YES' : 'NO');
-      console.log('User ID:', userId);
-      console.log('Redirect URI for token exchange:', redirectUri);
-      
-      const tokenRequestBody = new URLSearchParams({
-        code,
-        client_id: Deno.env.get('GMAIL_CLIENT_ID') ?? '',
-        client_secret: Deno.env.get('GMAIL_CLIENT_SECRET') ?? '',
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      });
-      
-      console.log('Token request body:', tokenRequestBody.toString());
-      
+      // Exchange code for tokens
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: tokenRequestBody,
+        body: new URLSearchParams({
+          code,
+          client_id: Deno.env.get('GMAIL_CLIENT_ID') ?? '',
+          client_secret: Deno.env.get('GMAIL_CLIENT_SECRET') ?? '',
+          redirect_uri: redirectUri,
+          grant_type: 'authorization_code',
+        }),
       });
 
       console.log('Token response status:', tokenResponse.status);
-      console.log('Token response headers:', Object.fromEntries(tokenResponse.headers.entries()));
       
-      const tokenResponseText = await tokenResponse.text();
-      console.log('Raw token response:', tokenResponseText);
-      
-      let tokens;
-      try {
-        tokens = JSON.parse(tokenResponseText);
-      } catch (e) {
-        console.error('Failed to parse token response as JSON:', e);
-        throw new Error(`Invalid JSON response from Google: ${tokenResponseText}`);
-      }
-      
-      console.log('Parsed tokens:', { ...tokens, access_token: tokens.access_token ? '[REDACTED]' : 'MISSING', refresh_token: tokens.refresh_token ? '[REDACTED]' : 'MISSING' });
-
       if (!tokenResponse.ok) {
-        console.error('Token exchange HTTP error:', tokenResponse.status, tokens);
-        throw new Error(`Token exchange failed with status ${tokenResponse.status}: ${tokens.error_description || tokens.error || 'Unknown error'}`);
+        const errorText = await tokenResponse.text();
+        console.error('Token exchange failed:', errorText);
+        throw new Error(`Token exchange failed: ${errorText}`);
       }
+
+      const tokens = await tokenResponse.json();
+      console.log('Tokens received successfully');
 
       if (!tokens.access_token) {
-        console.error('Token exchange failed - no access token:', tokens);
-        throw new Error(tokens.error_description || tokens.error || 'Failed to obtain access token');
+        console.error('No access token in response:', tokens);
+        throw new Error(tokens.error_description || 'Failed to obtain access token');
       }
 
       // Get user email from Google API
@@ -106,13 +84,18 @@ serve(async (req) => {
         },
       });
 
+      if (!userInfoResponse.ok) {
+        console.error('Failed to get user info:', userInfoResponse.status);
+        throw new Error('Failed to get user information from Google');
+      }
+
       const userInfo = await userInfoResponse.json();
-      console.log('User info:', userInfo);
+      console.log('User info retrieved:', userInfo.email);
 
       // Token expiry time
       const expiresAt = new Date(Date.now() + (tokens.expires_in * 1000));
 
-      // Token in Supabase speichern
+      // Store token in Supabase
       const { error } = await supabase
         .from('email_accounts')
         .upsert({
@@ -130,7 +113,7 @@ serve(async (req) => {
         throw error;
       }
 
-      console.log('Successfully stored Gmail account for user:', userId);
+      console.log('Successfully stored Gmail account');
 
       return new Response(
         JSON.stringify({ success: true, email: userInfo.email }),
@@ -191,6 +174,11 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    return new Response(
+      JSON.stringify({ error: 'Invalid action' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    );
 
   } catch (error) {
     console.error('Gmail auth error:', error);
