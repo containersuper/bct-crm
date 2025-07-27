@@ -49,6 +49,7 @@ export function EmailAccountManager() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Please log in first');
+        setConnecting(false);
         return;
       }
 
@@ -66,30 +67,46 @@ export function EmailAccountManager() {
         'width=500,height=600,scrollbars=yes,resizable=yes'
       );
 
-      // Listen for OAuth callback
-      const checkClosed = setInterval(async () => {
-        if (popup?.closed) {
-          clearInterval(checkClosed);
+      if (!popup) {
+        toast.error('Popup blocked. Please allow popups for this site.');
+        setConnecting(false);
+        return;
+      }
+
+      // Listen for messages from popup
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'gmail-oauth-result') {
+          window.removeEventListener('message', handleMessage);
           
-          // Check for authorization code in URL params (if using redirect)
-          const urlParams = new URLSearchParams(window.location.search);
-          const code = urlParams.get('code');
-          
-          if (code) {
-            await handleOAuthCallback(code, user.id);
-          } else {
-            // If no code, check if account was added
-            await fetchAccounts();
+          if (event.data.error) {
+            console.error('OAuth error:', event.data.error);
+            toast.error('Authentication was cancelled or failed');
+          } else if (event.data.code) {
+            await handleOAuthCallback(event.data.code, user.id);
           }
+          setConnecting(false);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Check if popup was closed manually
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
           setConnecting(false);
         }
       }, 1000);
 
       // Timeout after 5 minutes
       setTimeout(() => {
-        if (popup && !popup.closed) {
+        if (!popup.closed) {
           popup.close();
           clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
           setConnecting(false);
           toast.error('Authentication timeout');
         }

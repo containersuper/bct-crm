@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { RefreshCw, Mail, Search, Filter, Eye, Reply, FileText, CheckSquare } from "lucide-react";
+import { EmailSyncStatus } from "./EmailSyncStatus";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -80,6 +81,21 @@ export function EmailInboxIntegrated({ onEmailSelect, onCreateQuote }: EmailInbo
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast.error('Please log in first');
+        setSyncing(false);
+        return;
+      }
+
+      // Check if user has connected Gmail account
+      const { data: accounts } = await supabase
+        .from('email_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('provider', 'gmail')
+        .eq('is_active', true);
+
+      if (!accounts || accounts.length === 0) {
+        toast.error('Please connect your Gmail account first');
+        setSyncing(false);
         return;
       }
 
@@ -93,9 +109,14 @@ export function EmailInboxIntegrated({ onEmailSelect, onCreateQuote }: EmailInbo
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Sync error:', error);
+        toast.error(error.message || 'Failed to sync emails');
+        setSyncing(false);
+        return;
+      }
 
-      toast.success(`Synced ${data.count} emails`);
+      toast.success(`Synced ${data?.count || 0} emails from ${data?.account?.email || 'Gmail'}`);
       await fetchEmails();
     } catch (error) {
       console.error('Error syncing emails:', error);
@@ -184,19 +205,15 @@ export function EmailInboxIntegrated({ onEmailSelect, onCreateQuote }: EmailInbo
 
   return (
     <div className="space-y-4">
+      <EmailSyncStatus onSync={syncEmails} isLoading={syncing || loading} />
+      
       {/* Header and Controls */}
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Unified Email Inbox
-            </CardTitle>
-            <Button onClick={syncEmails} disabled={syncing}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync Emails'}
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Unified Email Inbox
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4">

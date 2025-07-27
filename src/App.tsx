@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { Navigation } from "@/components/layout/Navigation";
+import { GmailOAuthCallback } from "@/components/email/GmailOAuthCallback";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import EmailManagement from "./pages/EmailManagement";
@@ -55,6 +56,7 @@ const App = () => (
                     <CRMIntegration />
                   </ProtectedRoute>
                 } />
+                <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

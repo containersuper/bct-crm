@@ -20,16 +20,20 @@ serve(async (req) => {
     const { action } = await req.json();
 
     if (action === 'auth-url') {
+      // Get the current origin from environment or construct it
+      const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')?.replace('//', '//').split('.')[0]}.lovable.app/oauth/gmail/callback`;
+      
       // Gmail OAuth URL generieren
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${Deno.env.get('GMAIL_CLIENT_ID')}&` +
-        `redirect_uri=${encodeURIComponent(Deno.env.get('GMAIL_REDIRECT_URI') ?? '')}&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
         `response_type=code&` +
         `scope=${encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email')}&` +
         `access_type=offline&` +
         `prompt=consent`;
 
       console.log('Generated auth URL:', authUrl);
+      console.log('Using redirect URI:', redirectUri);
 
       return new Response(
         JSON.stringify({ authUrl }),
@@ -42,6 +46,8 @@ serve(async (req) => {
       
       console.log('Processing OAuth callback for user:', userId);
       
+      const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI') || `${Deno.env.get('SUPABASE_URL')?.replace('//', '//').split('.')[0]}.lovable.app/oauth/gmail/callback`;
+      
       // Token austauschen
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -50,7 +56,7 @@ serve(async (req) => {
           code,
           client_id: Deno.env.get('GMAIL_CLIENT_ID') ?? '',
           client_secret: Deno.env.get('GMAIL_CLIENT_SECRET') ?? '',
-          redirect_uri: Deno.env.get('GMAIL_REDIRECT_URI') ?? '',
+          redirect_uri: redirectUri,
           grant_type: 'authorization_code',
         }),
       });
@@ -59,7 +65,8 @@ serve(async (req) => {
       console.log('Received tokens:', { ...tokens, access_token: '[REDACTED]', refresh_token: '[REDACTED]' });
 
       if (!tokens.access_token) {
-        throw new Error('Failed to obtain access token');
+        console.error('Token exchange failed:', tokens);
+        throw new Error(tokens.error_description || 'Failed to obtain access token');
       }
 
       // Get user email from Google API

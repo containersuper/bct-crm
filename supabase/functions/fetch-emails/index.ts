@@ -57,16 +57,17 @@ serve(async (req) => {
         }
       }
 
-      // Build Gmail search query
-      let query = '';
-      if (brand) {
-        query = `to:${brand.toLowerCase().replace(' ', '')}@ OR to:info@${brand.toLowerCase().replace(' ', '')}.com`;
+      // Build Gmail search query with improved brand detection
+      let query = 'in:inbox';
+      if (brand && brand !== 'all') {
+        const brandQuery = `to:${brand.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        query += ` ${brandQuery}`;
       }
 
       console.log('Gmail query:', query);
 
-      // Gmail API aufrufen
-      const messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}${query ? `&q=${encodeURIComponent(query)}` : ''}`;
+      // Gmail API aufrufen with better error handling
+      const messagesUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${maxResults}&q=${encodeURIComponent(query)}`;
       
       const response = await fetch(messagesUrl, {
         headers: {
@@ -77,7 +78,14 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Gmail API error:', response.status, errorText);
-        throw new Error(`Gmail API error: ${response.status}`);
+        
+        if (response.status === 401) {
+          throw new Error('Gmail access token expired. Please reconnect your account.');
+        } else if (response.status === 403) {
+          throw new Error('Gmail API access denied. Please check your permissions.');
+        } else {
+          throw new Error(`Gmail API error (${response.status}): ${errorText}`);
+        }
       }
 
       const { messages } = await response.json();
@@ -108,13 +116,23 @@ serve(async (req) => {
           const subjectHeader = headers.find((h: any) => h.name.toLowerCase() === 'subject')?.value || '';
           const dateHeader = headers.find((h: any) => h.name.toLowerCase() === 'date')?.value || '';
 
+          // Extract email body
+          let emailBody = detail.snippet || '';
+          if (detail.payload?.body?.data) {
+            try {
+              emailBody = atob(detail.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
+            } catch (e) {
+              console.warn('Failed to decode email body for message:', detail.id);
+            }
+          }
+
           emails.push({
             id: detail.id,
             subject: subjectHeader,
             from: fromHeader,
             to: toHeader,
             date: dateHeader,
-            snippet: detail.snippet || '',
+            snippet: emailBody,
             brand: detectBrand(toHeader),
             threadId: detail.threadId,
             labelIds: detail.labelIds || [],
@@ -178,9 +196,20 @@ serve(async (req) => {
 
 function detectBrand(toAddress: string): string {
   const address = toAddress.toLowerCase();
+  
+  // Common email patterns for brand detection
+  if (address.includes('support@') || address.includes('info@') || address.includes('hello@')) {
+    const domain = address.split('@')[1]?.split('.')[0];
+    if (domain) {
+      return domain.charAt(0).toUpperCase() + domain.slice(1);
+    }
+  }
+  
+  // Fallback brand detection
   if (address.includes('brand1') || address.includes('brand-1')) return 'Brand 1';
   if (address.includes('brand2') || address.includes('brand-2')) return 'Brand 2';
   if (address.includes('brand3') || address.includes('brand-3')) return 'Brand 3';
   if (address.includes('brand4') || address.includes('brand-4')) return 'Brand 4';
-  return 'Unknown';
+  
+  return 'General';
 }
