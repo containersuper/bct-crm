@@ -28,9 +28,14 @@ serve(async (req) => {
       .eq('user_id', userId)
       .eq('provider', provider)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
-    if (accountError || !account) {
+    if (accountError) {
+      console.error('Error fetching email account:', accountError);
+      throw new Error('Error fetching email account');
+    }
+    
+    if (!account) {
       throw new Error('No email account connected');
     }
 
