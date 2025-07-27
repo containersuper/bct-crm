@@ -17,8 +17,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action } = await req.json();
-    console.log('Gmail auth action:', action);
+    // Parse request body once and reuse
+    const requestBody = await req.json();
+    const { action } = requestBody;
 
     if (action === 'auth-url') {
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
@@ -40,11 +41,7 @@ serve(async (req) => {
     }
 
     if (action === 'callback') {
-      const { code, userId } = await req.json();
-      
-      console.log('=== CALLBACK PROCESSING ===');
-      console.log('Code received:', code ? 'YES' : 'NO');
-      console.log('User ID:', userId);
+      const { code, userId } = requestBody;
       
       const redirectUri = `https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/gmail`;
       
@@ -122,7 +119,7 @@ serve(async (req) => {
     }
 
     if (action === 'refresh-token') {
-      const { userId } = await req.json();
+      const { userId } = requestBody;
 
       // Get existing account
       const { data: account, error: selectError } = await supabase
