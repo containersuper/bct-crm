@@ -156,25 +156,41 @@ serve(async (req) => {
       try {
         const emailDate = email.date ? new Date(email.date) : new Date();
         
-        await supabase
+        // Check if email already exists
+        const { data: existingEmail } = await supabase
           .from('email_history')
-          .upsert({
-            external_id: email.id,
-            subject: email.subject,
-            from_address: email.from,
-            to_address: email.to,
-            body: email.snippet,
-            brand: email.brand,
-            received_at: emailDate.toISOString(),
-            direction: 'incoming',
-            processed: false,
-            thread_id: email.threadId,
-            attachments: null,
-          }, {
-            onConflict: 'external_id'
-          });
+          .select('id')
+          .eq('external_id', email.id)
+          .maybeSingle();
+
+        if (!existingEmail) {
+          // Insert new email
+          const { error: insertError } = await supabase
+            .from('email_history')
+            .insert({
+              external_id: email.id,
+              subject: email.subject,
+              from_address: email.from,
+              to_address: email.to,
+              body: email.snippet,
+              brand: email.brand,
+              received_at: emailDate.toISOString(),
+              direction: 'incoming',
+              processed: false,
+              thread_id: email.threadId,
+              attachments: null,
+            });
+
+          if (insertError) {
+            console.error('Error inserting email:', email.id, insertError);
+          } else {
+            console.log('Successfully inserted email:', email.id);
+          }
+        } else {
+          console.log('Email already exists:', email.id);
+        }
       } catch (error) {
-        console.warn('Error saving email to database:', email.id, error);
+        console.error('Error saving email to database:', email.id, error);
       }
     }
 
