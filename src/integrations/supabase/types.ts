@@ -54,8 +54,14 @@ export type Database = {
           email: string
           id: string
           is_active: boolean | null
+          last_quota_reset: string | null
+          last_sync_error: string | null
+          last_sync_timestamp: string | null
           provider: string
+          quota_usage: number | null
           refresh_token: string | null
+          sync_error_count: number | null
+          sync_status: string | null
           token_expires_at: string | null
           updated_at: string | null
           user_id: string | null
@@ -66,8 +72,14 @@ export type Database = {
           email: string
           id?: string
           is_active?: boolean | null
+          last_quota_reset?: string | null
+          last_sync_error?: string | null
+          last_sync_timestamp?: string | null
           provider: string
+          quota_usage?: number | null
           refresh_token?: string | null
+          sync_error_count?: number | null
+          sync_status?: string | null
           token_expires_at?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -78,8 +90,14 @@ export type Database = {
           email?: string
           id?: string
           is_active?: boolean | null
+          last_quota_reset?: string | null
+          last_sync_error?: string | null
+          last_sync_timestamp?: string | null
           provider?: string
+          quota_usage?: number | null
           refresh_token?: string | null
+          sync_error_count?: number | null
+          sync_status?: string | null
           token_expires_at?: string | null
           updated_at?: string | null
           user_id?: string | null

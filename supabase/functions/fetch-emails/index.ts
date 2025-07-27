@@ -79,21 +79,15 @@ serve(async (req) => {
         }
       }
 
-      // Build Gmail API query for incremental sync
-      let query = `in:inbox`
+      // Get last sync timestamp for incremental sync
+      const lastSync = account.last_sync_timestamp ? new Date(account.last_sync_timestamp) : null;
+      const sinceDateStr = lastSync ? Math.floor(lastSync.getTime() / 1000) : Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000); // 7 days ago if no last sync
       
-      // Add date filter for incremental sync
-      if (sinceDate) {
-        const since = new Date(sinceDate)
-        const formattedDate = since.toISOString().split('T')[0].replace(/-/g, '/')
-        query += ` after:${formattedDate}`
-        console.log(`Incremental sync since: ${formattedDate}`)
-      }
-      
+      let query = `after:${sinceDateStr}`;
       if (brand && brand !== 'General') {
-        // Add brand-specific filtering
-        query += ` (to:${brand.toLowerCase()}@* OR to:support@${brand.toLowerCase()}.* OR to:info@${brand.toLowerCase()}.*)`
+        query += ` ${brand}`;
       }
+      query += ' label:inbox';
 
       console.log('Gmail query:', query);
 
@@ -222,27 +216,29 @@ serve(async (req) => {
       }
     }
 
-    // Update quota usage if accountId provided (for cron sync)
-    if (accountId && quotaUsed > 0) {
-      await supabase
-        .from('email_accounts')
-        .update({ 
-          quota_usage: supabase.raw(`quota_usage + ${quotaUsed}`)
-        })
-        .eq('id', accountId);
-    }
+    // Update last sync timestamp and reset error count on successful sync
+    await supabase
+      .from('email_accounts')
+      .update({ 
+        last_sync_timestamp: new Date().toISOString(),
+        sync_error_count: 0,
+        last_sync_error: null,
+        quota_usage: (account.quota_usage || 0) + quotaUsed
+      })
+      .eq('id', account.id);
 
+    console.log(`Fetched ${emails.length} emails for user ${userId}`);
     return new Response(JSON.stringify({
       success: true,
       emails,
       count: emails.length,
       quotaUsed,
-      account: {
-        email: account.email,
-        provider: account.provider
+      account: { 
+        provider: account.provider, 
+        email: account.email 
       }
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {

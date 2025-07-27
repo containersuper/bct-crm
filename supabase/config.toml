@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.send-email]
 verify_jwt = false
+
+[functions.sync-emails-cron]
+verify_jwt = false
