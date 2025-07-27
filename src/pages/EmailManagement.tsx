@@ -31,10 +31,9 @@ export default function EmailManagement() {
     }
   };
 
-  const handleConnectGmail = () => {
-    setIsConnecting(true);
-    // This will trigger the Gmail connection process
-    // The actual connection logic is in EmailAccountManager
+  const handleAccountConnected = () => {
+    setIsConnecting(false);
+    checkConnectedAccounts();
   };
 
   return (
@@ -48,7 +47,7 @@ export default function EmailManagement() {
 
       {!hasConnectedAccounts ? (
         <EmailConnectionGuide 
-          onConnectGmail={handleConnectGmail}
+          onAccountConnected={handleAccountConnected}
           isConnecting={isConnecting}
           hasConnectedAccounts={hasConnectedAccounts}
         />

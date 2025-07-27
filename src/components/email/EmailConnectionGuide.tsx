@@ -2,18 +2,109 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, Mail, Settings, RefreshCw } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface EmailConnectionGuideProps {
-  onConnectGmail: () => void;
+  onAccountConnected: () => void;
   isConnecting: boolean;
   hasConnectedAccounts: boolean;
 }
 
 export const EmailConnectionGuide = ({ 
-  onConnectGmail, 
+  onAccountConnected, 
   isConnecting, 
   hasConnectedAccounts 
 }: EmailConnectionGuideProps) => {
+  
+  const connectGmail = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('Please log in first');
+        return;
+      }
+
+      // Get OAuth URL from edge function
+      const { data, error } = await supabase.functions.invoke('gmail-auth', {
+        body: { action: 'auth-url' }
+      });
+
+      if (error) throw error;
+
+      // Open OAuth popup
+      const popup = window.open(
+        data.authUrl,
+        'gmail-auth',
+        'width=500,height=600,scrollbars=yes,resizable=yes'
+      );
+
+      if (!popup) {
+        toast.error('Popup blocked. Please allow popups for this site.');
+        return;
+      }
+
+      // Listen for messages from popup
+      const handleMessage = async (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'gmail-oauth-result') {
+          window.removeEventListener('message', handleMessage);
+          
+          if (event.data.error) {
+            console.error('OAuth error:', event.data.error);
+            toast.error('Authentication was cancelled or failed');
+          } else if (event.data.code) {
+            await handleOAuthCallback(event.data.code, user.id);
+          }
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Check if popup was closed manually
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
+        }
+      }, 1000);
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (!popup.closed) {
+          popup.close();
+          clearInterval(checkClosed);
+          window.removeEventListener('message', handleMessage);
+          toast.error('Authentication timeout');
+        }
+      }, 300000);
+
+    } catch (error) {
+      console.error('Error connecting Gmail:', error);
+      toast.error('Failed to connect Gmail account');
+    }
+  };
+
+  const handleOAuthCallback = async (code: string, userId: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('gmail-auth', {
+        body: { 
+          action: 'callback',
+          code,
+          userId
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Gmail account connected: ${data.email}`);
+      onAccountConnected();
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      toast.error('Failed to complete Gmail authentication');
+    }
+  };
   if (hasConnectedAccounts) {
     return (
       <Alert>
@@ -53,7 +144,7 @@ export const EmailConnectionGuide = ({
 
         <div className="pt-4">
           <Button 
-            onClick={onConnectGmail}
+            onClick={connectGmail}
             disabled={isConnecting}
             className="w-full"
           >
