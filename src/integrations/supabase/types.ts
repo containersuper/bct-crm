@@ -50,10 +50,14 @@ export type Database = {
       email_accounts: {
         Row: {
           access_token: string
+          backfill_enabled: boolean | null
+          backfill_end_date: string | null
+          backfill_start_date: string | null
           created_at: string | null
           email: string
           id: string
           is_active: boolean | null
+          last_backfill_timestamp: string | null
           last_quota_reset: string | null
           last_sync_error: string | null
           last_sync_timestamp: string | null
@@ -68,10 +72,14 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          backfill_enabled?: boolean | null
+          backfill_end_date?: string | null
+          backfill_start_date?: string | null
           created_at?: string | null
           email: string
           id?: string
           is_active?: boolean | null
+          last_backfill_timestamp?: string | null
           last_quota_reset?: string | null
           last_sync_error?: string | null
           last_sync_timestamp?: string | null
@@ -86,10 +94,14 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          backfill_enabled?: boolean | null
+          backfill_end_date?: string | null
+          backfill_start_date?: string | null
           created_at?: string | null
           email?: string
           id?: string
           is_active?: boolean | null
+          last_backfill_timestamp?: string | null
           last_quota_reset?: string | null
           last_sync_error?: string | null
           last_sync_timestamp?: string | null
@@ -103,6 +115,62 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      email_backfill_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          email_account_id: string
+          emails_processed: number | null
+          end_date: string
+          error_message: string | null
+          id: string
+          quota_used: number | null
+          start_date: string
+          status: string
+          total_estimated: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          email_account_id: string
+          emails_processed?: number | null
+          end_date: string
+          error_message?: string | null
+          id?: string
+          quota_used?: number | null
+          start_date: string
+          status?: string
+          total_estimated?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          email_account_id?: string
+          emails_processed?: number | null
+          end_date?: string
+          error_message?: string | null
+          id?: string
+          quota_used?: number | null
+          start_date?: string
+          status?: string
+          total_estimated?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_backfill_progress_email_account_id_fkey"
+            columns: ["email_account_id"]
+            isOneToOne: false
+            referencedRelation: "email_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_history: {
         Row: {
@@ -396,7 +464,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_date_range_processed: {
+        Args: { p_account_id: string; p_start_date: string; p_end_date: string }
+        Returns: boolean
+      }
     }
     Enums: {
       email_template_type:
