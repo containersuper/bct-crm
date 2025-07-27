@@ -12,6 +12,7 @@ interface Email {
   direction: string;
   attachments: any;
   created_at: string;
+  received_at?: string;
   sender_email?: string;
   sender_name?: string;
   brand?: string;
@@ -127,7 +128,7 @@ export const EmailList = ({ emails, selectedEmail, onSelectEmail, loading }: Ema
                   
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {formatDate(email.created_at)}
+                      {formatDate(email.received_at || email.created_at)}
                     </span>
                     {email.direction && (
                       <Badge variant="outline" className="text-xs">

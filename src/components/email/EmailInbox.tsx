@@ -19,6 +19,7 @@ interface Email {
   direction: string;
   attachments: any;
   created_at: string;
+  received_at?: string;
   sender_email?: string;
   sender_name?: string;
   brand?: string;
@@ -32,6 +33,9 @@ export const EmailInbox = () => {
   const [brandFilter, setBrandFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [pageSize] = useState(500); // Increase page size
   const { toast } = useToast();
 
   const brands = ["Brand 1", "Brand 2", "Brand 3", "Brand 4"];
@@ -46,7 +50,8 @@ export const EmailInbox = () => {
       const { data, error } = await supabase
         .from('email_history')
         .select('*')
-        .order('received_at', { ascending: false });
+        .order('received_at', { ascending: false })
+        .limit(1000); // Increase limit to 1000 emails
 
       if (error) throw error;
 
