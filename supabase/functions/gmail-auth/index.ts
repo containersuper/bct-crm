@@ -32,8 +32,11 @@ serve(async (req) => {
         `access_type=offline&` +
         `prompt=consent`;
 
-      console.log('Generated auth URL:', authUrl);
-      console.log('Using redirect URI:', redirectUri);
+      console.log('=== DEBUG: Generated auth URL ===');
+      console.log('Auth URL:', authUrl);
+      console.log('Redirect URI being used:', redirectUri);
+      console.log('Client ID:', Deno.env.get('GMAIL_CLIENT_ID'));
+      console.log('=== END DEBUG ===');
 
       return new Response(
         JSON.stringify({ authUrl }),
