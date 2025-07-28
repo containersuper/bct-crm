@@ -255,6 +255,7 @@ export type Database = {
       email_analytics: {
         Row: {
           analysis_timestamp: string
+          batch_id: string | null
           created_at: string
           email_id: number
           entities: Json | null
@@ -269,6 +270,7 @@ export type Database = {
         }
         Insert: {
           analysis_timestamp?: string
+          batch_id?: string | null
           created_at?: string
           email_id: number
           entities?: Json | null
@@ -283,6 +285,7 @@ export type Database = {
         }
         Update: {
           analysis_timestamp?: string
+          batch_id?: string | null
           created_at?: string
           email_id?: number
           entities?: Json | null
@@ -299,7 +302,7 @@ export type Database = {
           {
             foreignKeyName: "email_analytics_email_id_fkey"
             columns: ["email_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "email_history"
             referencedColumns: ["id"]
           },
@@ -363,6 +366,7 @@ export type Database = {
       }
       email_history: {
         Row: {
+          analysis_status: string | null
           attachments: Json | null
           body: string | null
           brand: string | null
@@ -372,6 +376,7 @@ export type Database = {
           external_id: string | null
           from_address: string | null
           id: number
+          last_analyzed: string | null
           processed: boolean | null
           received_at: string | null
           subject: string | null
@@ -379,6 +384,7 @@ export type Database = {
           to_address: string | null
         }
         Insert: {
+          analysis_status?: string | null
           attachments?: Json | null
           body?: string | null
           brand?: string | null
@@ -388,6 +394,7 @@ export type Database = {
           external_id?: string | null
           from_address?: string | null
           id?: number
+          last_analyzed?: string | null
           processed?: boolean | null
           received_at?: string | null
           subject?: string | null
@@ -395,6 +402,7 @@ export type Database = {
           to_address?: string | null
         }
         Update: {
+          analysis_status?: string | null
           attachments?: Json | null
           body?: string | null
           brand?: string | null
@@ -404,6 +412,7 @@ export type Database = {
           external_id?: string | null
           from_address?: string | null
           id?: number
+          last_analyzed?: string | null
           processed?: boolean | null
           received_at?: string | null
           subject?: string | null

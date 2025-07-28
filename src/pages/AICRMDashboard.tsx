@@ -9,6 +9,7 @@ import { CustomerIntelligenceProfile } from '@/components/ai/CustomerIntelligenc
 import { SmartPricingCalculator } from '@/components/ai/SmartPricingCalculator';
 import { AIAssistantChat } from '@/components/ai/AIAssistantChat';
 import { GmailTokenManager } from '@/components/email/GmailTokenManager';
+import { AnalysisManager } from '@/components/ai/AnalysisManager';
 import { Brain, MessageCircle, User, Calculator, BarChart3, AlertTriangle } from 'lucide-react';
 
 // Mock data for demo - using real email data
@@ -98,7 +99,7 @@ export default function AICRMDashboard() {
         </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="analysis" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
             Email Analysis
@@ -114,6 +115,10 @@ export default function AICRMDashboard() {
           <TabsTrigger value="pricing" className="flex items-center gap-2">
             <Calculator className="h-4 w-4" />
             Smart Pricing
+          </TabsTrigger>
+          <TabsTrigger value="manager" className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" />
+            Analysis Manager
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
@@ -140,6 +145,10 @@ export default function AICRMDashboard() {
 
         <TabsContent value="pricing" className="mt-6">
           <SmartPricingCalculator customerId={currentCustomer.id} />
+        </TabsContent>
+
+        <TabsContent value="manager" className="mt-6">
+          <AnalysisManager />
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
