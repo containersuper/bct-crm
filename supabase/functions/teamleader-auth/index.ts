@@ -61,8 +61,7 @@ Deno.serve(async (req) => {
         const authUrl = `${TEAMLEADER_BASE_URL}/oauth2/authorize?` +
           `client_id=${clientId}&` +
           `response_type=code&` +
-          `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/crm')}&` +
-          `scope=contacts:read contacts:write companies:read companies:write`;
+          `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/crm')}`;
         
         response = { authUrl };
         break;
