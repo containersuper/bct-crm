@@ -702,6 +702,79 @@ export type Database = {
           },
         ]
       }
+      teamleader_activities: {
+        Row: {
+          activity_type: string | null
+          created_at: string | null
+          customer_id: number | null
+          deal_id: string | null
+          description: string | null
+          ends_at: string | null
+          id: string
+          location: string | null
+          project_id: string | null
+          starts_at: string | null
+          status: string | null
+          subject: string | null
+          teamleader_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          activity_type?: string | null
+          created_at?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          location?: string | null
+          project_id?: string | null
+          starts_at?: string | null
+          status?: string | null
+          subject?: string | null
+          teamleader_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          activity_type?: string | null
+          created_at?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          location?: string | null
+          project_id?: string | null
+          starts_at?: string | null
+          status?: string | null
+          subject?: string | null
+          teamleader_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teamleader_activities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teamleader_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "teamleader_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teamleader_activities_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "teamleader_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teamleader_conflicts: {
         Row: {
           conflict_field: string
@@ -777,6 +850,74 @@ export type Database = {
         }
         Relationships: []
       }
+      teamleader_deals: {
+        Row: {
+          actual_closing_date: string | null
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: number | null
+          description: string | null
+          expected_closing_date: string | null
+          id: string
+          lead_source: string | null
+          phase: string | null
+          probability: number | null
+          responsible_user_id: string | null
+          teamleader_id: string
+          title: string | null
+          updated_at: string | null
+          value: number | null
+        }
+        Insert: {
+          actual_closing_date?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          description?: string | null
+          expected_closing_date?: string | null
+          id?: string
+          lead_source?: string | null
+          phase?: string | null
+          probability?: number | null
+          responsible_user_id?: string | null
+          teamleader_id: string
+          title?: string | null
+          updated_at?: string | null
+          value?: number | null
+        }
+        Update: {
+          actual_closing_date?: string | null
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          description?: string | null
+          expected_closing_date?: string | null
+          id?: string
+          lead_source?: string | null
+          phase?: string | null
+          probability?: number | null
+          responsible_user_id?: string | null
+          teamleader_id?: string
+          title?: string | null
+          updated_at?: string | null
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teamleader_deals_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teamleader_field_mappings: {
         Row: {
           created_at: string | null
@@ -806,6 +947,212 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      teamleader_invoices: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: number | null
+          deal_id: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          invoice_date: string | null
+          invoice_number: string | null
+          payment_date: string | null
+          status: string | null
+          teamleader_id: string
+          title: string | null
+          total_price: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          payment_date?: string | null
+          status?: string | null
+          teamleader_id: string
+          title?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_number?: string | null
+          payment_date?: string | null
+          status?: string | null
+          teamleader_id?: string
+          title?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teamleader_invoices_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teamleader_invoices_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "teamleader_deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teamleader_projects: {
+        Row: {
+          budget: number | null
+          company_id: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: number | null
+          description: string | null
+          end_date: string | null
+          id: string
+          responsible_user_id: string | null
+          start_date: string | null
+          status: string | null
+          teamleader_id: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          budget?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          responsible_user_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          teamleader_id: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          budget?: number | null
+          company_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          responsible_user_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          teamleader_id?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teamleader_projects_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teamleader_quotes: {
+        Row: {
+          company_id: string | null
+          contact_id: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: number | null
+          deal_id: string | null
+          description: string | null
+          id: string
+          quote_date: string | null
+          quote_number: string | null
+          status: string | null
+          teamleader_id: string
+          title: string | null
+          total_price: number | null
+          updated_at: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          quote_date?: string | null
+          quote_number?: string | null
+          status?: string | null
+          teamleader_id: string
+          title?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          contact_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          deal_id?: string | null
+          description?: string | null
+          id?: string
+          quote_date?: string | null
+          quote_number?: string | null
+          status?: string | null
+          teamleader_id?: string
+          title?: string | null
+          total_price?: number | null
+          updated_at?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teamleader_quotes_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teamleader_quotes_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "teamleader_deals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teamleader_sync_history: {
         Row: {

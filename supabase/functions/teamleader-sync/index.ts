@@ -32,6 +32,112 @@ interface TeamLeaderCompany {
   telephone?: string;
 }
 
+interface TeamLeaderDeal {
+  id: string;
+  title: string;
+  description?: string;
+  value?: {
+    amount: number;
+    currency: string;
+  };
+  phase?: {
+    name: string;
+  };
+  probability?: number;
+  expected_closing_date?: string;
+  closing_date?: string;
+  lead_source?: {
+    name: string;
+  };
+  responsible_user?: {
+    id: string;
+  };
+  customer?: {
+    id: string;
+  };
+  company?: {
+    id: string;
+  };
+  contact?: {
+    id: string;
+  };
+}
+
+interface TeamLeaderInvoice {
+  id: string;
+  invoice_number: string;
+  title?: string;
+  description?: string;
+  total_price?: {
+    amount: number;
+    currency: string;
+  };
+  invoice_date?: string;
+  due_date?: string;
+  payment_date?: string;
+  status?: string;
+  customer?: {
+    id: string;
+  };
+  company?: {
+    id: string;
+  };
+  contact?: {
+    id: string;
+  };
+  deal?: {
+    id: string;
+  };
+}
+
+interface TeamLeaderQuote {
+  id: string;
+  quotation_number: string;
+  title?: string;
+  description?: string;
+  total_price?: {
+    amount: number;
+    currency: string;
+  };
+  quotation_date?: string;
+  valid_until?: string;
+  status?: string;
+  customer?: {
+    id: string;
+  };
+  company?: {
+    id: string;
+  };
+  contact?: {
+    id: string;
+  };
+  deal?: {
+    id: string;
+  };
+}
+
+interface TeamLeaderProject {
+  id: string;
+  title: string;
+  description?: string;
+  status?: string;
+  start_date?: string;
+  end_date?: string;
+  budget?: {
+    amount: number;
+    currency: string;
+  };
+  customer?: {
+    id: string;
+  };
+  company?: {
+    id: string;
+  };
+  responsible_user?: {
+    id: string;
+  };
+}
+
 const TEAMLEADER_API_URL = 'https://api.teamleader.eu';
 
 Deno.serve(async (req) => {
@@ -129,6 +235,42 @@ Deno.serve(async (req) => {
           totalSuccess += companiesResult.success;
           totalFailed += companiesResult.failed;
           errors.push(...companiesResult.errors);
+        }
+
+        // Import deals from TeamLeader
+        if (syncType === 'deals' || syncType === 'all') {
+          const dealsResult = await importDeals(connection.access_token, supabase, user.id, fullSync || action === 'full_import', batchSize, maxPages);
+          totalProcessed += dealsResult.processed;
+          totalSuccess += dealsResult.success;
+          totalFailed += dealsResult.failed;
+          errors.push(...dealsResult.errors);
+        }
+
+        // Import invoices from TeamLeader
+        if (syncType === 'invoices' || syncType === 'all') {
+          const invoicesResult = await importInvoices(connection.access_token, supabase, user.id, fullSync || action === 'full_import', batchSize, maxPages);
+          totalProcessed += invoicesResult.processed;
+          totalSuccess += invoicesResult.success;
+          totalFailed += invoicesResult.failed;
+          errors.push(...invoicesResult.errors);
+        }
+
+        // Import quotes from TeamLeader
+        if (syncType === 'quotes' || syncType === 'all') {
+          const quotesResult = await importQuotes(connection.access_token, supabase, user.id, fullSync || action === 'full_import', batchSize, maxPages);
+          totalProcessed += quotesResult.processed;
+          totalSuccess += quotesResult.success;
+          totalFailed += quotesResult.failed;
+          errors.push(...quotesResult.errors);
+        }
+
+        // Import projects from TeamLeader
+        if (syncType === 'projects' || syncType === 'all') {
+          const projectsResult = await importProjects(connection.access_token, supabase, user.id, fullSync || action === 'full_import', batchSize, maxPages);
+          totalProcessed += projectsResult.processed;
+          totalSuccess += projectsResult.success;
+          totalFailed += projectsResult.failed;
+          errors.push(...projectsResult.errors);
         }
       }
 
@@ -542,6 +684,578 @@ async function exportToTeamLeader(accessToken: string, supabase: any, userId: st
 
   } catch (apiError) {
     errors.push(`API error exporting customers: ${apiError.message}`);
+    failed = processed;
+  }
+
+  return { processed, success, failed, errors };
+}
+
+async function importDeals(accessToken: string, supabase: any, userId: string, fullSync = false, batchSize = 250, maxPages = 50) {
+  let processed = 0;
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  try {
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
+
+    console.log(`Starting deals import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
+
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching deals page ${page}...`);
+      
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
+      const response = await fetch(`${TEAMLEADER_API_URL}/deals.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const deals: TeamLeaderDeal[] = data.data || [];
+      
+      console.log(`Received ${deals.length} deals on page ${page}`);
+
+      if (deals.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      const dealsToInsert: any[] = [];
+
+      for (const deal of deals) {
+        processed++;
+        
+        try {
+          // Find matching customer by TeamLeader ID
+          let customer_id = null;
+          if (deal.customer?.id || deal.company?.id) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('teamleader_id', deal.customer?.id || deal.company?.id)
+              .single();
+            
+            customer_id = customer?.id || null;
+          }
+
+          const mappedDeal: any = {
+            teamleader_id: deal.id,
+            title: deal.title,
+            description: deal.description,
+            value: deal.value?.amount,
+            currency: deal.value?.currency || 'EUR',
+            phase: deal.phase?.name,
+            probability: deal.probability,
+            expected_closing_date: deal.expected_closing_date ? new Date(deal.expected_closing_date).toISOString().split('T')[0] : null,
+            actual_closing_date: deal.closing_date ? new Date(deal.closing_date).toISOString().split('T')[0] : null,
+            lead_source: deal.lead_source?.name,
+            responsible_user_id: deal.responsible_user?.id,
+            customer_id: customer_id,
+            company_id: deal.company?.id,
+            contact_id: deal.contact?.id
+          };
+
+          dealsToInsert.push(mappedDeal);
+
+        } catch (dealError) {
+          errors.push(`Error processing deal ${deal.id}: ${dealError.message}`);
+          failed++;
+        }
+      }
+
+      // Bulk insert deals
+      if (dealsToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('teamleader_deals')
+            .upsert(dealsToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${dealsToInsert.length} deals: ${insertError.message}`);
+            failed += dealsToInsert.length;
+          } else {
+            success += dealsToInsert.length;
+            console.log(`Successfully imported ${dealsToInsert.length} deals from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += dealsToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`Deals import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
+  } catch (apiError) {
+    console.error('API error importing deals:', apiError);
+    errors.push(`API error importing deals: ${apiError.message}`);
+    failed = processed;
+  }
+
+  return { processed, success, failed, errors };
+}
+
+async function importInvoices(accessToken: string, supabase: any, userId: string, fullSync = false, batchSize = 250, maxPages = 50) {
+  let processed = 0;
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  try {
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
+
+    console.log(`Starting invoices import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
+
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching invoices page ${page}...`);
+      
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
+      const response = await fetch(`${TEAMLEADER_API_URL}/invoices.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const invoices: TeamLeaderInvoice[] = data.data || [];
+      
+      console.log(`Received ${invoices.length} invoices on page ${page}`);
+
+      if (invoices.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      const invoicesToInsert: any[] = [];
+
+      for (const invoice of invoices) {
+        processed++;
+        
+        try {
+          // Find matching customer
+          let customer_id = null;
+          if (invoice.customer?.id || invoice.company?.id) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('teamleader_id', invoice.customer?.id || invoice.company?.id)
+              .single();
+            
+            customer_id = customer?.id || null;
+          }
+
+          // Find matching deal
+          let deal_id = null;
+          if (invoice.deal?.id) {
+            const { data: deal } = await supabase
+              .from('teamleader_deals')
+              .select('id')
+              .eq('teamleader_id', invoice.deal.id)
+              .single();
+            
+            deal_id = deal?.id || null;
+          }
+
+          const mappedInvoice: any = {
+            teamleader_id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            title: invoice.title,
+            description: invoice.description,
+            total_price: invoice.total_price?.amount,
+            currency: invoice.total_price?.currency || 'EUR',
+            invoice_date: invoice.invoice_date ? new Date(invoice.invoice_date).toISOString().split('T')[0] : null,
+            due_date: invoice.due_date ? new Date(invoice.due_date).toISOString().split('T')[0] : null,
+            payment_date: invoice.payment_date ? new Date(invoice.payment_date).toISOString().split('T')[0] : null,
+            status: invoice.status,
+            customer_id: customer_id,
+            company_id: invoice.company?.id,
+            contact_id: invoice.contact?.id,
+            deal_id: deal_id
+          };
+
+          invoicesToInsert.push(mappedInvoice);
+
+        } catch (invoiceError) {
+          errors.push(`Error processing invoice ${invoice.id}: ${invoiceError.message}`);
+          failed++;
+        }
+      }
+
+      // Bulk insert invoices
+      if (invoicesToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('teamleader_invoices')
+            .upsert(invoicesToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${invoicesToInsert.length} invoices: ${insertError.message}`);
+            failed += invoicesToInsert.length;
+          } else {
+            success += invoicesToInsert.length;
+            console.log(`Successfully imported ${invoicesToInsert.length} invoices from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += invoicesToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`Invoices import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
+  } catch (apiError) {
+    console.error('API error importing invoices:', apiError);
+    errors.push(`API error importing invoices: ${apiError.message}`);
+    failed = processed;
+  }
+
+  return { processed, success, failed, errors };
+}
+
+async function importQuotes(accessToken: string, supabase: any, userId: string, fullSync = false, batchSize = 250, maxPages = 50) {
+  let processed = 0;
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  try {
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
+
+    console.log(`Starting quotes import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
+
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching quotes page ${page}...`);
+      
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
+      const response = await fetch(`${TEAMLEADER_API_URL}/quotations.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const quotes: TeamLeaderQuote[] = data.data || [];
+      
+      console.log(`Received ${quotes.length} quotes on page ${page}`);
+
+      if (quotes.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      const quotesToInsert: any[] = [];
+
+      for (const quote of quotes) {
+        processed++;
+        
+        try {
+          // Find matching customer
+          let customer_id = null;
+          if (quote.customer?.id || quote.company?.id) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('teamleader_id', quote.customer?.id || quote.company?.id)
+              .single();
+            
+            customer_id = customer?.id || null;
+          }
+
+          // Find matching deal
+          let deal_id = null;
+          if (quote.deal?.id) {
+            const { data: deal } = await supabase
+              .from('teamleader_deals')
+              .select('id')
+              .eq('teamleader_id', quote.deal.id)
+              .single();
+            
+            deal_id = deal?.id || null;
+          }
+
+          const mappedQuote: any = {
+            teamleader_id: quote.id,
+            quote_number: quote.quotation_number,
+            title: quote.title,
+            description: quote.description,
+            total_price: quote.total_price?.amount,
+            currency: quote.total_price?.currency || 'EUR',
+            quote_date: quote.quotation_date ? new Date(quote.quotation_date).toISOString().split('T')[0] : null,
+            valid_until: quote.valid_until ? new Date(quote.valid_until).toISOString().split('T')[0] : null,
+            status: quote.status,
+            customer_id: customer_id,
+            company_id: quote.company?.id,
+            contact_id: quote.contact?.id,
+            deal_id: deal_id
+          };
+
+          quotesToInsert.push(mappedQuote);
+
+        } catch (quoteError) {
+          errors.push(`Error processing quote ${quote.id}: ${quoteError.message}`);
+          failed++;
+        }
+      }
+
+      // Bulk insert quotes
+      if (quotesToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('teamleader_quotes')
+            .upsert(quotesToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${quotesToInsert.length} quotes: ${insertError.message}`);
+            failed += quotesToInsert.length;
+          } else {
+            success += quotesToInsert.length;
+            console.log(`Successfully imported ${quotesToInsert.length} quotes from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += quotesToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`Quotes import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
+  } catch (apiError) {
+    console.error('API error importing quotes:', apiError);
+    errors.push(`API error importing quotes: ${apiError.message}`);
+    failed = processed;
+  }
+
+  return { processed, success, failed, errors };
+}
+
+async function importProjects(accessToken: string, supabase: any, userId: string, fullSync = false, batchSize = 250, maxPages = 50) {
+  let processed = 0;
+  let success = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  try {
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
+
+    console.log(`Starting projects import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
+
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching projects page ${page}...`);
+      
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
+      const response = await fetch(`${TEAMLEADER_API_URL}/projects.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const projects: TeamLeaderProject[] = data.data || [];
+      
+      console.log(`Received ${projects.length} projects on page ${page}`);
+
+      if (projects.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      const projectsToInsert: any[] = [];
+
+      for (const project of projects) {
+        processed++;
+        
+        try {
+          // Find matching customer
+          let customer_id = null;
+          if (project.customer?.id || project.company?.id) {
+            const { data: customer } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('teamleader_id', project.customer?.id || project.company?.id)
+              .single();
+            
+            customer_id = customer?.id || null;
+          }
+
+          const mappedProject: any = {
+            teamleader_id: project.id,
+            title: project.title,
+            description: project.description,
+            status: project.status,
+            start_date: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : null,
+            end_date: project.end_date ? new Date(project.end_date).toISOString().split('T')[0] : null,
+            budget: project.budget?.amount,
+            currency: project.budget?.currency || 'EUR',
+            customer_id: customer_id,
+            company_id: project.company?.id,
+            responsible_user_id: project.responsible_user?.id
+          };
+
+          projectsToInsert.push(mappedProject);
+
+        } catch (projectError) {
+          errors.push(`Error processing project ${project.id}: ${projectError.message}`);
+          failed++;
+        }
+      }
+
+      // Bulk insert projects
+      if (projectsToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('teamleader_projects')
+            .upsert(projectsToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${projectsToInsert.length} projects: ${insertError.message}`);
+            failed += projectsToInsert.length;
+          } else {
+            success += projectsToInsert.length;
+            console.log(`Successfully imported ${projectsToInsert.length} projects from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += projectsToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    console.log(`Projects import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
+  } catch (apiError) {
+    console.error('API error importing projects:', apiError);
+    errors.push(`API error importing projects: ${apiError.message}`);
     failed = processed;
   }
 
