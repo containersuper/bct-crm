@@ -56,10 +56,14 @@ export function GmailTokenManager() {
     setRefreshingAccounts(prev => new Set([...prev, accountId]));
     
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const { data, error } = await supabase.functions.invoke('gmail-auth', {
         body: { 
-          action: 'refresh',
-          account_id: accountId
+          action: 'refresh-token',
+          userId: user.id
         }
       });
 
