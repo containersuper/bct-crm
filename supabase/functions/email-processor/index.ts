@@ -83,7 +83,10 @@ async function processEmailsBatch(supabaseClient: any, jobId: string, batchSize:
 
     if (emailError) throw emailError;
 
+    console.log(`Found ${emails?.length || 0} emails to process`);
+
     if (!emails || emails.length === 0) {
+      console.log('No emails found to process - completing job');
       await supabaseClient.rpc('update_processing_job', {
         p_job_id: jobId,
         p_status: 'completed',
