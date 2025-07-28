@@ -63,7 +63,8 @@ export function GmailTokenManager() {
       const { data, error } = await supabase.functions.invoke('gmail-auth', {
         body: { 
           action: 'refresh-token',
-          userId: user.id
+          userId: user.id,
+          accountId: accountId
         }
       });
 

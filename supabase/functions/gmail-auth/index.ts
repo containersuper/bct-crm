@@ -119,17 +119,29 @@ serve(async (req) => {
     }
 
     if (action === 'refresh-token') {
-      const { userId } = requestBody;
+      const { userId, accountId } = requestBody;
 
-      // Get existing account
-      const { data: account, error: selectError } = await supabase
+      // Get specific account if accountId provided, otherwise get first active account
+      let query = supabase
         .from('email_accounts')
         .select('*')
         .eq('user_id', userId)
         .eq('provider', 'gmail')
-        .single();
+        .eq('is_active', true);
 
-      if (selectError || !account?.refresh_token) {
+      if (accountId) {
+        query = query.eq('id', accountId);
+      }
+
+      const { data: accounts, error: selectError } = await query;
+
+      if (selectError || !accounts || accounts.length === 0) {
+        throw new Error('No active Gmail account found');
+      }
+
+      const account = accounts[0];
+
+      if (!account?.refresh_token) {
         throw new Error('No refresh token found');
       }
 
