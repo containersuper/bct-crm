@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
           `client_id=${clientId}&` +
           `response_type=code&` +
           `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/crm')}&` +
-          `scope=companies.read companies.write contacts.read contacts.write deals.read deals.write`;
+          `scope=contacts:read contacts:write companies:read companies:write`;
         
         response = { authUrl };
         break;
