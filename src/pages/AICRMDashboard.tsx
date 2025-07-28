@@ -1,36 +1,77 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
 import { EmailAnalysisDashboard } from '@/components/ai/EmailAnalysisDashboard';
 import { AIResponseGenerator } from '@/components/ai/AIResponseGenerator';
 import { CustomerIntelligenceProfile } from '@/components/ai/CustomerIntelligenceProfile';
 import { SmartPricingCalculator } from '@/components/ai/SmartPricingCalculator';
 import { AIAssistantChat } from '@/components/ai/AIAssistantChat';
-import { Brain, MessageCircle, User, Calculator, BarChart3 } from 'lucide-react';
+import { GmailTokenManager } from '@/components/email/GmailTokenManager';
+import { Brain, MessageCircle, User, Calculator, BarChart3, AlertTriangle } from 'lucide-react';
 
-// Mock data for demo
-const mockEmail = {
-  id: 1,
-  subject: "Urgent: Container shipping quote needed",
-  from_address: "john@logistics-company.com",
-  body: "Hello, we need an urgent quote for 2x 20ft containers from Hamburg to Rotterdam. Please respond ASAP.",
-  received_at: new Date().toISOString()
-};
+// Mock data for demo - using real email data
+const useRealEmailData = () => {
+  const [emails, setEmails] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
-const mockCustomer = {
-  id: 1,
-  name: "John Smith",
-  email: "john@logistics-company.com",
-  company: "Global Logistics Ltd",
-  phone: "+49 30 12345678",
-  brand: "Premium",
-  created_at: new Date().toISOString()
+  useEffect(() => {
+    const fetchData = async () => {
+      // Fetch real emails
+      const { data: emailData } = await supabase
+        .from('email_history')
+        .select('*')
+        .order('received_at', { ascending: false })
+        .limit(1);
+      
+      if (emailData && emailData.length > 0) {
+        setEmails(emailData);
+        
+        // Extract customer info from email
+        const email = emailData[0];
+        const mockCustomer = {
+          id: 1,
+          name: email.from_address?.split('<')[0]?.trim() || "Unknown Customer",
+          email: email.from_address?.match(/<(.+)>/)?.[1] || email.from_address,
+          company: "Customer Company",
+          phone: "+49 30 12345678",
+          brand: email.brand || "General",
+          created_at: new Date().toISOString()
+        };
+        setCustomers([mockCustomer]);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
+  return { emails, customers };
 };
 
 export default function AICRMDashboard() {
   const [selectedTab, setSelectedTab] = useState('analysis');
   const [showAIChat, setShowAIChat] = useState(false);
+  const { emails, customers } = useRealEmailData();
+
+  // Use real data if available, fallback to mock data
+  const currentEmail = emails[0] || {
+    id: 1,
+    subject: "No emails available",
+    from_address: "demo@example.com",
+    body: "Please connect your Gmail account and sync emails to see AI analysis.",
+    received_at: new Date().toISOString()
+  };
+
+  const currentCustomer = customers[0] || {
+    id: 1,
+    name: "Demo Customer",
+    email: "demo@example.com",
+    company: "Demo Company",
+    phone: "+49 30 12345678",
+    brand: "General",
+    created_at: new Date().toISOString()
+  };
 
   return (
     <>
@@ -82,7 +123,7 @@ export default function AICRMDashboard() {
 
         <TabsContent value="analysis" className="mt-6">
           <EmailAnalysisDashboard 
-            email={mockEmail}
+            email={currentEmail}
             onGenerateResponse={() => setSelectedTab('response')}
             onCreateQuote={() => setSelectedTab('pricing')}
             onMarkProcessed={() => {}}
@@ -90,38 +131,43 @@ export default function AICRMDashboard() {
         </TabsContent>
 
         <TabsContent value="response" className="mt-6">
-          <AIResponseGenerator email={mockEmail} />
+          <AIResponseGenerator email={currentEmail} />
         </TabsContent>
 
         <TabsContent value="intelligence" className="mt-6">
-          <CustomerIntelligenceProfile customer={mockCustomer} />
+          <CustomerIntelligenceProfile customer={currentCustomer} />
         </TabsContent>
 
         <TabsContent value="pricing" className="mt-6">
-          <SmartPricingCalculator customerId={mockCustomer.id} />
+          <SmartPricingCalculator customerId={currentCustomer.id} />
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5" />
-                  AI Performance Analytics
-                </CardTitle>
-                <CardDescription>
-                  Track AI performance metrics and ROI
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Analytics dashboard coming soon</p>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+            {/* Gmail Token Status */}
+            <GmailTokenManager />
             
-            <AIAssistantChat />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="h-5 w-5" />
+                    AI Performance Analytics
+                  </CardTitle>
+                  <CardDescription>
+                    Track AI performance metrics and ROI
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">Analytics dashboard coming soon</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <AIAssistantChat />
+            </div>
           </div>
         </TabsContent>
       </Tabs>
