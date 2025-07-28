@@ -239,13 +239,13 @@ export function TeamLeaderSync() {
     try {
       setSyncStatus(prev => ({ ...prev, progress: 10, message: fullSync ? 'Importing ALL data from TeamLeader...' : 'Importing from TeamLeader...' }));
       
-      const { data, error } = await supabase.functions.invoke('teamleader-sync', {
+       const { data, error } = await supabase.functions.invoke('teamleader-sync', {
         body: { 
           action: fullSync ? 'full_import' : 'sync', 
           syncType: 'all',
           fullSync: fullSync,
-          batchSize: fullSync ? 250 : 100,
-          maxPages: fullSync ? 50 : 5
+          batchSize: fullSync ? 200 : 100,
+          maxPages: fullSync ? 15 : 5
         }
       });
 
@@ -432,7 +432,7 @@ export function TeamLeaderSync() {
           
           <Separator className="my-4" />
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             <Button 
               onClick={() => handleManualSync(false)} 
               disabled={syncStatus.status === 'syncing' || !connection}
@@ -449,17 +449,23 @@ export function TeamLeaderSync() {
               className="flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${syncStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
-              {syncStatus.status === 'syncing' ? 'Importing...' : 'Full Import'}
+              {syncStatus.status === 'syncing' ? 'Full Importing...' : 'Full Import (ALL Data)'}
             </Button>
             
-            <div className="flex items-center gap-2">
-              <Switch 
-                checked={autoSyncEnabled} 
-                onCheckedChange={setAutoSyncEnabled}
-                disabled={!connection}
-              />
-              <Label>Auto Sync</Label>
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              <span>💡 Quick: 500 records | Full: 3000+ records</span>
             </div>
+          </div>
+          
+          <Separator className="my-4" />
+          
+          <div className="flex items-center gap-2">
+            <Switch 
+              checked={autoSyncEnabled} 
+              onCheckedChange={setAutoSyncEnabled}
+              disabled={!connection}
+            />
+            <Label>Auto Sync</Label>
           </div>
         </CardContent>
       </Card>

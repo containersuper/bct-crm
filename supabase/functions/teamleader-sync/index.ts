@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       throw new Error('Invalid authentication token');
     }
 
-    const { action, syncType = 'all', fullSync = false, batchSize = 250, maxPages = 50 }: SyncRequest = await req.json();
+    const { action, syncType = 'all', fullSync = false, batchSize = 200, maxPages = 15 }: SyncRequest = await req.json();
 
     // Get TeamLeader connection for user
     const { data: connection, error: connectionError } = await supabase
@@ -355,12 +355,14 @@ async function importContacts(accessToken: string, supabase: any, userId: string
       const requestBody = {
         filter: {},
         page: { 
-          size: fullSync ? batchSize : 100
+          size: Math.min(fullSync ? batchSize : 100, 250) // TeamLeader has max 250 per page
         }
       };
 
-      // Only add page number for subsequent pages (TeamLeader starts from page 1)
-      if (page > 1) {
+      // For full sync, only use page numbers after first page, and limit to reasonable numbers
+      if (fullSync && page > 1 && page <= 20) { // Limit to 20 pages max for stability
+        requestBody.page.number = page;
+      } else if (!fullSync && page > 1) {
         requestBody.page.number = page;
       }
 
@@ -514,12 +516,14 @@ async function importCompanies(accessToken: string, supabase: any, userId: strin
       const requestBody = {
         filter: {},
         page: { 
-          size: fullSync ? batchSize : 100
+          size: Math.min(fullSync ? batchSize : 100, 250) // TeamLeader has max 250 per page
         }
       };
 
-      // Only add page number for subsequent pages (TeamLeader starts from page 1)
-      if (page > 1) {
+      // For full sync, limit pagination to avoid API errors
+      if (fullSync && page > 1 && page <= 20) {
+        requestBody.page.number = page;
+      } else if (!fullSync && page > 1) {
         requestBody.page.number = page;
       }
 
