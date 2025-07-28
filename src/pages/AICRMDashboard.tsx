@@ -99,114 +99,112 @@ export default function AICRMDashboard() {
           </div>
         </div>
 
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="analysis" className="flex items-center gap-2">
-            <MessageCircle className="h-4 w-4" />
-            Email Analysis
-          </TabsTrigger>
-          <TabsTrigger value="response" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            Auto Response
-          </TabsTrigger>
-          <TabsTrigger value="intelligence" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Customer Intelligence
-          </TabsTrigger>
-          <TabsTrigger value="pricing" className="flex items-center gap-2">
-            <Calculator className="h-4 w-4" />
-            Smart Pricing
-          </TabsTrigger>
-          <TabsTrigger value="manager" className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            Analysis Manager
-          </TabsTrigger>
-          <TabsTrigger value="analytics" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            AI Analytics
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="analysis" className="mt-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-              <EmailInboxIntegrated 
-                onEmailSelect={(email) => {
-                  setSelectedTab('response');
-                  // Convert email format for compatibility
-                  const convertedEmail = {
-                    id: parseInt(email.id.toString()),
-                    subject: email.subject || '',
-                    from_address: email.from_address || '',
-                    to_address: email.to_address || '',
-                    body: email.body || '',
-                    received_at: email.received_at || '',
-                    direction: email.direction || 'incoming',
-                    processed: email.processed || false,
-                    brand: email.brand || ''
-                  };
-                  // Store selected email for other tabs
-                  (window as any).selectedEmail = convertedEmail;
-                }}
-                onCreateQuote={() => setSelectedTab('pricing')}
-              />
-            </div>
-            <div>
-              <EmailAnalysisDashboard 
-                email={currentEmail}
-                onGenerateResponse={() => setSelectedTab('response')}
-                onCreateQuote={() => setSelectedTab('pricing')}
-                onMarkProcessed={() => {}}
-              />
-            </div>
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+          {/* Persistent Email Navigator */}
+          <div className="xl:col-span-1">
+            <EmailInboxIntegrated 
+              onEmailSelect={(email) => {
+                const convertedEmail = {
+                  id: parseInt(email.id.toString()),
+                  subject: email.subject || '',
+                  from_address: email.from_address || '',
+                  to_address: email.to_address || '',
+                  body: email.body || '',
+                  received_at: email.received_at || '',
+                  direction: email.direction || 'incoming',
+                  processed: email.processed || false,
+                  brand: email.brand || ''
+                };
+                (window as any).selectedEmail = convertedEmail;
+              }}
+              onCreateQuote={() => setSelectedTab('pricing')}
+            />
           </div>
-        </TabsContent>
 
-        <TabsContent value="response" className="mt-6">
-          <AIResponseGenerator email={currentEmail} />
-        </TabsContent>
+          {/* Main Content Area */}
+          <div className="xl:col-span-3">
+            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-6">
+                <TabsTrigger value="analysis" className="flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  Analysis
+                </TabsTrigger>
+                <TabsTrigger value="response" className="flex items-center gap-2">
+                  <Brain className="h-4 w-4" />
+                  Response
+                </TabsTrigger>
+                <TabsTrigger value="intelligence" className="flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Intelligence
+                </TabsTrigger>
+                <TabsTrigger value="pricing" className="flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Pricing
+                </TabsTrigger>
+                <TabsTrigger value="manager" className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Manager
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4" />
+                  Analytics
+                </TabsTrigger>
+              </TabsList>
 
-        <TabsContent value="intelligence" className="mt-6">
-          <CustomerIntelligenceProfile customer={currentCustomer} />
-        </TabsContent>
+              <TabsContent value="analysis" className="mt-6">
+                <EmailAnalysisDashboard 
+                  email={currentEmail}
+                  onGenerateResponse={() => setSelectedTab('response')}
+                  onCreateQuote={() => setSelectedTab('pricing')}
+                  onMarkProcessed={() => {}}
+                />
+              </TabsContent>
 
-        <TabsContent value="pricing" className="mt-6">
-          <SmartPricingCalculator customerId={currentCustomer.id} />
-        </TabsContent>
+              <TabsContent value="response" className="mt-6">
+                <AIResponseGenerator email={currentEmail} />
+              </TabsContent>
 
-        <TabsContent value="manager" className="mt-6">
-          <AnalysisManager />
-        </TabsContent>
+              <TabsContent value="intelligence" className="mt-6">
+                <CustomerIntelligenceProfile customer={currentCustomer} />
+              </TabsContent>
 
-        <TabsContent value="analytics" className="mt-6">
-          <div className="space-y-6">
-            {/* Gmail Token Status */}
-            <GmailTokenManager />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5" />
-                    AI Performance Analytics
-                  </CardTitle>
-                  <CardDescription>
-                    Track AI performance metrics and ROI
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center py-8">
-                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">Analytics dashboard coming soon</p>
+              <TabsContent value="pricing" className="mt-6">
+                <SmartPricingCalculator customerId={currentCustomer.id} />
+              </TabsContent>
+
+              <TabsContent value="manager" className="mt-6">
+                <AnalysisManager />
+              </TabsContent>
+
+              <TabsContent value="analytics" className="mt-6">
+                <div className="space-y-6">
+                  <GmailTokenManager />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <BarChart3 className="h-5 w-5" />
+                          AI Performance Analytics
+                        </CardTitle>
+                        <CardDescription>
+                          Track AI performance metrics and ROI
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-center py-8">
+                          <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <p className="text-muted-foreground">Analytics dashboard coming soon</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <AIAssistantChat />
                   </div>
-                </CardContent>
-              </Card>
-              
-              <AIAssistantChat />
-            </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
       </div>
 
       {/* Floating AI Assistant */}
