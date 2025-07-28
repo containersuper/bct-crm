@@ -257,24 +257,38 @@ export function EmailProcessingDashboard() {
   const progressPercentage = (stats.processedEmails / stats.totalEmails) * 100;
 
   const toggleProcessing = async () => {
-    setIsProcessing(!isProcessing);
-    if (!isProcessing) {
-      toast({
-        title: "Processing Started",
-        description: "Email analysis pipeline activated",
-      });
-      // Here you would trigger the batch processor
-      try {
-        await supabase.functions.invoke('claude-batch-analyzer', {
-          body: { batchSize: 50, forceReanalysis: false }
-        });
-      } catch (error) {
-        console.error('Error starting processing:', error);
-      }
-    } else {
+    if (isProcessing) {
+      setIsProcessing(false);
       toast({
         title: "Processing Paused",
         description: "Email analysis pipeline paused",
+      });
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      toast({
+        title: "Processing Started",
+        description: "Smart email analysis pipeline activated",
+      });
+
+      const { data, error } = await supabase.functions.invoke('email-processor', {
+        body: { action: 'start', batchSize: 50 }
+      });
+      
+      if (error) throw error;
+      
+      console.log('Processing started:', data);
+      // Refresh stats immediately
+      loadProcessingStats();
+    } catch (error) {
+      console.error('Error starting processing:', error);
+      setIsProcessing(false);
+      toast({
+        title: "Error",
+        description: "Failed to start processing",
+        variant: "destructive"
       });
     }
   };

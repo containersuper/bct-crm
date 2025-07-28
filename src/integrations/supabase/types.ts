@@ -429,6 +429,51 @@ export type Database = {
           },
         ]
       }
+      email_processing_jobs: {
+        Row: {
+          batch_size: number | null
+          created_at: string
+          emails_processed: number | null
+          end_time: string | null
+          error_count: number | null
+          error_details: Json | null
+          id: string
+          job_type: string
+          start_time: string | null
+          status: string
+          success_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          batch_size?: number | null
+          created_at?: string
+          emails_processed?: number | null
+          end_time?: string | null
+          error_count?: number | null
+          error_details?: Json | null
+          id?: string
+          job_type: string
+          start_time?: string | null
+          status?: string
+          success_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          batch_size?: number | null
+          created_at?: string
+          emails_processed?: number | null
+          end_time?: string | null
+          error_count?: number | null
+          error_details?: Json | null
+          id?: string
+          job_type?: string
+          start_time?: string | null
+          status?: string
+          success_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_template_performance: {
         Row: {
           conversions: number | null
