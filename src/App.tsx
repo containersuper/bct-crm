@@ -13,6 +13,7 @@ import EmailManagement from "./pages/EmailManagement";
 import EmailTemplates from "./pages/EmailTemplates";
 import QuoteManagement from "./pages/QuoteManagement";
 import CRMIntegration from "./pages/CRMIntegration";
+import AICRMDashboard from "./pages/AICRMDashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +55,11 @@ const App = () => (
                 <Route path="/crm" element={
                   <ProtectedRoute>
                     <CRMIntegration />
+                  </ProtectedRoute>
+                } />
+                <Route path="/ai-crm" element={
+                  <ProtectedRoute>
+                    <AICRMDashboard />
                   </ProtectedRoute>
                 } />
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />

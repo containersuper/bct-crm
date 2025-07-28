@@ -32,23 +32,32 @@ serve(async (req) => {
 
     console.log('Fetching emails for user:', userId, 'mode:', mode, 'provider:', provider);
 
-    // Get email account credentials
-    const { data: account, error: accountError } = await supabase
+    // Get email account credentials - if multiple accounts, use the first active one
+    let query = supabase
       .from('email_accounts')
       .select('*')
       .eq('user_id', userId)
       .eq('provider', provider)
-      .eq('is_active', true)
-      .maybeSingle();
+      .eq('is_active', true);
+
+    // If accountId is specified, filter by it
+    if (accountId) {
+      query = query.eq('id', accountId);
+    }
+
+    const { data: accounts, error: accountError } = await query;
 
     if (accountError) {
       console.error('Error fetching email account:', accountError);
       throw new Error('Error fetching email account');
     }
     
-    if (!account) {
+    if (!accounts || accounts.length === 0) {
       throw new Error('No email account connected');
     }
+
+    // Use the first account or the specified account
+    const account = accounts[0];
 
     let emails = [];
     let quotaUsed = 0;

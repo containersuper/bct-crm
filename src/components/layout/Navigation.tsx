@@ -8,6 +8,7 @@ import {
   FileText, 
   Calculator, 
   Users,
+  Brain,
   LogOut,
   User
 } from 'lucide-react';
@@ -21,6 +22,7 @@ export const Navigation = () => {
     { path: '/emails', label: 'Email Management', icon: Mail },
     { path: '/templates', label: 'Email Templates', icon: FileText },
     { path: '/quotes', label: 'Quote Management', icon: Calculator },
+    { path: '/ai-crm', label: 'AI CRM', icon: Brain },
     { path: '/crm', label: 'CRM Integration', icon: Users },
   ];
 

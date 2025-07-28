@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmailAnalysisDashboard } from '@/components/ai/EmailAnalysisDashboard';
 import { AIResponseGenerator } from '@/components/ai/AIResponseGenerator';
 import { CustomerIntelligenceProfile } from '@/components/ai/CustomerIntelligenceProfile';
 import { SmartPricingCalculator } from '@/components/ai/SmartPricingCalculator';
+import { AIAssistantChat } from '@/components/ai/AIAssistantChat';
 import { Brain, MessageCircle, User, Calculator, BarChart3 } from 'lucide-react';
 
 // Mock data for demo
@@ -28,18 +30,31 @@ const mockCustomer = {
 
 export default function AICRMDashboard() {
   const [selectedTab, setSelectedTab] = useState('analysis');
+  const [showAIChat, setShowAIChat] = useState(false);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <Brain className="h-8 w-8 text-primary" />
-          AI-Powered CRM
-        </h1>
-        <p className="text-muted-foreground">
-          Intelligent customer relationship management with Claude AI
-        </p>
-      </div>
+    <>
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
+                <Brain className="h-8 w-8 text-primary" />
+                AI-Powered CRM
+              </h1>
+              <p className="text-muted-foreground">
+                Intelligent customer relationship management with Claude AI
+              </p>
+            </div>
+            <Button 
+              onClick={() => setShowAIChat(true)}
+              className="flex items-center gap-2"
+            >
+              <MessageCircle className="h-4 w-4" />
+              AI Assistant
+            </Button>
+          </div>
+        </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
@@ -87,25 +102,38 @@ export default function AICRMDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                AI Performance Analytics
-              </CardTitle>
-              <CardDescription>
-                Track AI performance metrics and ROI
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">Analytics dashboard coming soon</p>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  AI Performance Analytics
+                </CardTitle>
+                <CardDescription>
+                  Track AI performance metrics and ROI
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">Analytics dashboard coming soon</p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <AIAssistantChat />
+          </div>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+
+      {/* Floating AI Assistant */}
+      {showAIChat && (
+        <AIAssistantChat 
+          isFloating 
+          onClose={() => setShowAIChat(false)} 
+        />
+      )}
+    </>
   );
 }
