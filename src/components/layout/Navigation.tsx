@@ -23,6 +23,7 @@ export const Navigation = () => {
     { path: '/templates', label: 'Email Templates', icon: FileText },
     { path: '/quotes', label: 'Quote Management', icon: Calculator },
     { path: '/ai-crm', label: 'AI CRM', icon: Brain },
+    { path: '/email-processing', label: 'Email Processing', icon: Brain },
     { path: '/crm', label: 'CRM Integration', icon: Users },
   ];
 
