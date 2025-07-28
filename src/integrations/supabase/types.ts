@@ -155,7 +155,7 @@ export type Database = {
           brand: string | null
           company: string | null
           created_at: string | null
-          email: string
+          email: string | null
           id: number
           name: string
           phone: string | null
@@ -165,7 +165,7 @@ export type Database = {
           brand?: string | null
           company?: string | null
           created_at?: string | null
-          email: string
+          email?: string | null
           id?: number
           name: string
           phone?: string | null
@@ -175,7 +175,7 @@ export type Database = {
           brand?: string | null
           company?: string | null
           created_at?: string | null
-          email?: string
+          email?: string | null
           id?: number
           name?: string
           phone?: string | null

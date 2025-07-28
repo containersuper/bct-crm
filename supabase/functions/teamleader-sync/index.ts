@@ -210,19 +210,25 @@ async function importContacts(accessToken: string, supabase: any, userId: string
       console.log(`Fetching contacts page ${page}...`);
       
       // Fetch contacts from TeamLeader with pagination
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      // Only add page number for subsequent pages (TeamLeader starts from page 1)
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
       const response = await fetch(`${TEAMLEADER_API_URL}/contacts.list`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          filter: {},
-          page: { 
-            size: fullSync ? batchSize : 100,
-            number: page 
-          }
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
@@ -274,9 +280,15 @@ async function importContacts(accessToken: string, supabase: any, userId: string
             mappedContact.name = `${contact.first_name} ${contact.last_name}`;
           } else if (contact.first_name) {
             mappedContact.name = contact.first_name;
+          } else if (contact.last_name) {
+            mappedContact.name = contact.last_name;
+          } else if (contact.email) {
+            mappedContact.name = contact.email; // Use email as fallback name
+          } else {
+            mappedContact.name = `Contact ${contact.id}`; // Use ID as ultimate fallback
           }
 
-          mappedContact.email = contact.email;
+          mappedContact.email = contact.email || null; // Allow null emails
           mappedContact.teamleader_id = contact.id;
 
           contactsToInsert.push(mappedContact);
@@ -352,19 +364,25 @@ async function importCompanies(accessToken: string, supabase: any, userId: strin
       console.log(`Fetching companies page ${page}...`);
       
       // Fetch companies from TeamLeader with pagination
+      const requestBody = {
+        filter: {},
+        page: { 
+          size: fullSync ? batchSize : 100
+        }
+      };
+
+      // Only add page number for subsequent pages (TeamLeader starts from page 1)
+      if (page > 1) {
+        requestBody.page.number = page;
+      }
+
       const response = await fetch(`${TEAMLEADER_API_URL}/companies.list`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          filter: {},
-          page: { 
-            size: fullSync ? batchSize : 100,
-            number: page 
-          }
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
