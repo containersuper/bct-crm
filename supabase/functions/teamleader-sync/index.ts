@@ -6,8 +6,11 @@ const corsHeaders = {
 };
 
 interface SyncRequest {
-  action: 'sync' | 'import' | 'export';
+  action: 'sync' | 'import' | 'export' | 'full_import';
   syncType?: 'contacts' | 'companies' | 'all';
+  fullSync?: boolean;
+  batchSize?: number;
+  maxPages?: number;
 }
 
 interface TeamLeaderContact {
@@ -55,7 +58,7 @@ Deno.serve(async (req) => {
       throw new Error('Invalid authentication token');
     }
 
-    const { action, syncType = 'all' }: SyncRequest = await req.json();
+    const { action, syncType = 'all', fullSync = false, batchSize = 250, maxPages = 50 }: SyncRequest = await req.json();
 
     // Get TeamLeader connection for user
     const { data: connection, error: connectionError } = await supabase
@@ -109,10 +112,10 @@ Deno.serve(async (req) => {
         throw new Error('Failed to get field mappings');
       }
 
-      if (action === 'import' || action === 'sync') {
+      if (action === 'import' || action === 'sync' || action === 'full_import') {
         // Import contacts from TeamLeader
         if (syncType === 'contacts' || syncType === 'all') {
-          const contactsResult = await importContacts(connection.access_token, supabase, user.id, fieldMappings);
+          const contactsResult = await importContacts(connection.access_token, supabase, user.id, fieldMappings, fullSync || action === 'full_import', batchSize, maxPages);
           totalProcessed += contactsResult.processed;
           totalSuccess += contactsResult.success;
           totalFailed += contactsResult.failed;
@@ -121,7 +124,7 @@ Deno.serve(async (req) => {
 
         // Import companies from TeamLeader
         if (syncType === 'companies' || syncType === 'all') {
-          const companiesResult = await importCompanies(connection.access_token, supabase, user.id, fieldMappings);
+          const companiesResult = await importCompanies(connection.access_token, supabase, user.id, fieldMappings, fullSync || action === 'full_import', batchSize, maxPages);
           totalProcessed += companiesResult.processed;
           totalSuccess += companiesResult.success;
           totalFailed += companiesResult.failed;
@@ -190,89 +193,141 @@ Deno.serve(async (req) => {
   }
 });
 
-async function importContacts(accessToken: string, supabase: any, userId: string, fieldMappings: any[]) {
+async function importContacts(accessToken: string, supabase: any, userId: string, fieldMappings: any[], fullSync = false, batchSize = 250, maxPages = 50) {
   let processed = 0;
   let success = 0;
   let failed = 0;
   const errors: string[] = [];
 
   try {
-    // Fetch contacts from TeamLeader
-    const response = await fetch(`${TEAMLEADER_API_URL}/contacts.list`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filter: {},
-        page: { size: 100 }
-      })
-    });
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
 
-    if (!response.ok) {
-      throw new Error(`TeamLeader API error: ${response.status}`);
-    }
+    console.log(`Starting contact import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
 
-    const data = await response.json();
-    const contacts: TeamLeaderContact[] = data.data || [];
-
-    for (const contact of contacts) {
-      processed++;
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching contacts page ${page}...`);
       
-      try {
-        // Map TeamLeader fields to our fields
-        const mappedContact: any = {};
-        
-        for (const mapping of fieldMappings.filter(m => m.field_type === 'contact')) {
-          switch (mapping.teamleader_field) {
-            case 'first_name':
-              mappedContact[mapping.our_field] = contact.first_name;
-              break;
-            case 'last_name':
-              mappedContact[mapping.our_field] = contact.last_name;
-              break;
-            case 'email':
-              mappedContact[mapping.our_field] = contact.email;
-              break;
-            case 'telephone':
-              mappedContact[mapping.our_field] = contact.telephone;
-              break;
-            case 'company_name':
-              mappedContact[mapping.our_field] = contact.company?.name;
-              break;
+      // Fetch contacts from TeamLeader with pagination
+      const response = await fetch(`${TEAMLEADER_API_URL}/contacts.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filter: {},
+          page: { 
+            size: fullSync ? batchSize : 100,
+            number: page 
           }
-        }
+        })
+      });
 
-        // Create full name if we have first and last name
-        if (contact.first_name && contact.last_name) {
-          mappedContact.name = `${contact.first_name} ${contact.last_name}`;
-        } else if (contact.first_name) {
-          mappedContact.name = contact.first_name;
-        }
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
 
-        mappedContact.email = contact.email;
-        mappedContact.teamleader_id = contact.id;
+      const data = await response.json();
+      const contacts: TeamLeaderContact[] = data.data || [];
+      
+      console.log(`Received ${contacts.length} contacts on page ${page}`);
 
-        // Insert or update customer
-        const { error: insertError } = await supabase
-          .from('customers')
-          .upsert(mappedContact, { onConflict: 'teamleader_id' });
+      if (contacts.length === 0) {
+        hasMoreData = false;
+        break;
+      }
 
-        if (insertError) {
-          errors.push(`Failed to import contact ${contact.id}: ${insertError.message}`);
+      // Process contacts in batches for better performance
+      const contactsToInsert: any[] = [];
+
+      for (const contact of contacts) {
+        processed++;
+        
+        try {
+          // Map TeamLeader fields to our fields
+          const mappedContact: any = {};
+          
+          for (const mapping of fieldMappings.filter(m => m.field_type === 'contact')) {
+            switch (mapping.teamleader_field) {
+              case 'first_name':
+                mappedContact[mapping.our_field] = contact.first_name;
+                break;
+              case 'last_name':
+                mappedContact[mapping.our_field] = contact.last_name;
+                break;
+              case 'email':
+                mappedContact[mapping.our_field] = contact.email;
+                break;
+              case 'telephone':
+                mappedContact[mapping.our_field] = contact.telephone;
+                break;
+              case 'company_name':
+                mappedContact[mapping.our_field] = contact.company?.name;
+                break;
+            }
+          }
+
+          // Create full name if we have first and last name
+          if (contact.first_name && contact.last_name) {
+            mappedContact.name = `${contact.first_name} ${contact.last_name}`;
+          } else if (contact.first_name) {
+            mappedContact.name = contact.first_name;
+          }
+
+          mappedContact.email = contact.email;
+          mappedContact.teamleader_id = contact.id;
+
+          contactsToInsert.push(mappedContact);
+
+        } catch (contactError) {
+          errors.push(`Error processing contact ${contact.id}: ${contactError.message}`);
           failed++;
-        } else {
-          success++;
         }
+      }
 
-      } catch (contactError) {
-        errors.push(`Error processing contact ${contact.id}: ${contactError.message}`);
-        failed++;
+      // Bulk insert contacts
+      if (contactsToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('customers')
+            .upsert(contactsToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${contactsToInsert.length} contacts: ${insertError.message}`);
+            failed += contactsToInsert.length;
+          } else {
+            success += contactsToInsert.length;
+            console.log(`Successfully imported ${contactsToInsert.length} contacts from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += contactsToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      // For full sync, continue until no more data
+      // For regular sync, stop after first page if not explicitly requesting full sync
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      // Rate limiting - small delay between requests
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
+    console.log(`Contact import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
   } catch (apiError) {
+    console.error('API error importing contacts:', apiError);
     errors.push(`API error importing contacts: ${apiError.message}`);
     failed = processed;
   }
@@ -280,65 +335,117 @@ async function importContacts(accessToken: string, supabase: any, userId: string
   return { processed, success, failed, errors };
 }
 
-async function importCompanies(accessToken: string, supabase: any, userId: string, fieldMappings: any[]) {
+async function importCompanies(accessToken: string, supabase: any, userId: string, fieldMappings: any[], fullSync = false, batchSize = 250, maxPages = 50) {
   let processed = 0;
   let success = 0;
   let failed = 0;
   const errors: string[] = [];
 
   try {
-    // Fetch companies from TeamLeader
-    const response = await fetch(`${TEAMLEADER_API_URL}/companies.list`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        filter: {},
-        page: { size: 100 }
-      })
-    });
+    let page = 1;
+    let hasMoreData = true;
+    let totalPages = 0;
 
-    if (!response.ok) {
-      throw new Error(`TeamLeader API error: ${response.status}`);
-    }
+    console.log(`Starting company import - Full sync: ${fullSync}, Batch size: ${batchSize}, Max pages: ${maxPages}`);
 
-    const data = await response.json();
-    const companies: TeamLeaderCompany[] = data.data || [];
-
-    for (const company of companies) {
-      processed++;
+    while (hasMoreData && totalPages < maxPages) {
+      console.log(`Fetching companies page ${page}...`);
       
-      try {
-        // Map TeamLeader fields to our fields
-        const mappedCompany: any = {
-          name: company.name,
-          email: company.email,
-          phone: company.telephone,
-          teamleader_id: company.id,
-          company: company.name
-        };
+      // Fetch companies from TeamLeader with pagination
+      const response = await fetch(`${TEAMLEADER_API_URL}/companies.list`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filter: {},
+          page: { 
+            size: fullSync ? batchSize : 100,
+            number: page 
+          }
+        })
+      });
 
-        // Insert or update customer
-        const { error: insertError } = await supabase
-          .from('customers')
-          .upsert(mappedCompany, { onConflict: 'teamleader_id' });
+      if (!response.ok) {
+        throw new Error(`TeamLeader API error: ${response.status}`);
+      }
 
-        if (insertError) {
-          errors.push(`Failed to import company ${company.id}: ${insertError.message}`);
+      const data = await response.json();
+      const companies: TeamLeaderCompany[] = data.data || [];
+      
+      console.log(`Received ${companies.length} companies on page ${page}`);
+
+      if (companies.length === 0) {
+        hasMoreData = false;
+        break;
+      }
+
+      // Process companies in batches for better performance
+      const companiesToInsert: any[] = [];
+
+      for (const company of companies) {
+        processed++;
+        
+        try {
+          // Map TeamLeader fields to our fields
+          const mappedCompany: any = {
+            name: company.name,
+            email: company.email,
+            phone: company.telephone,
+            teamleader_id: company.id,
+            company: company.name
+          };
+
+          companiesToInsert.push(mappedCompany);
+
+        } catch (companyError) {
+          errors.push(`Error processing company ${company.id}: ${companyError.message}`);
           failed++;
-        } else {
-          success++;
         }
+      }
 
-      } catch (companyError) {
-        errors.push(`Error processing company ${company.id}: ${companyError.message}`);
-        failed++;
+      // Bulk insert companies
+      if (companiesToInsert.length > 0) {
+        try {
+          const { error: insertError } = await supabase
+            .from('customers')
+            .upsert(companiesToInsert, { onConflict: 'teamleader_id' });
+
+          if (insertError) {
+            console.error('Bulk insert error:', insertError);
+            errors.push(`Failed to bulk import ${companiesToInsert.length} companies: ${insertError.message}`);
+            failed += companiesToInsert.length;
+          } else {
+            success += companiesToInsert.length;
+            console.log(`Successfully imported ${companiesToInsert.length} companies from page ${page}`);
+          }
+        } catch (bulkError) {
+          console.error('Bulk insert exception:', bulkError);
+          errors.push(`Bulk insert exception: ${bulkError.message}`);
+          failed += companiesToInsert.length;
+        }
+      }
+
+      totalPages++;
+      page++;
+
+      // For full sync, continue until no more data
+      // For regular sync, stop after first page if not explicitly requesting full sync
+      if (!fullSync && totalPages >= 1) {
+        hasMoreData = false;
+      }
+
+      // Rate limiting - small delay between requests
+      if (hasMoreData) {
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
 
+    console.log(`Company import completed. Pages processed: ${totalPages}, Total processed: ${processed}, Success: ${success}, Failed: ${failed}`);
+
   } catch (apiError) {
+    console.error('API error importing companies:', apiError);
     errors.push(`API error importing companies: ${apiError.message}`);
     failed = processed;
   }

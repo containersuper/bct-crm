@@ -223,7 +223,7 @@ export function TeamLeaderSync() {
     }
   };
 
-  const handleManualSync = async () => {
+  const handleManualSync = async (fullSync = false) => {
     if (!connection) {
       toast.error('Please connect to TeamLeader first');
       return;
@@ -233,15 +233,20 @@ export function TeamLeaderSync() {
       ...syncStatus,
       status: 'syncing',
       progress: 0,
-      message: 'Starting sync...'
+      message: fullSync ? 'Starting full data import...' : 'Starting sync...'
     });
 
     try {
-      // Start with import
-      setSyncStatus(prev => ({ ...prev, progress: 10, message: 'Importing from TeamLeader...' }));
+      setSyncStatus(prev => ({ ...prev, progress: 10, message: fullSync ? 'Importing ALL data from TeamLeader...' : 'Importing from TeamLeader...' }));
       
       const { data, error } = await supabase.functions.invoke('teamleader-sync', {
-        body: { action: 'sync', syncType: 'all' }
+        body: { 
+          action: fullSync ? 'full_import' : 'sync', 
+          syncType: 'all',
+          fullSync: fullSync,
+          batchSize: fullSync ? 250 : 100,
+          maxPages: fullSync ? 50 : 5
+        }
       });
 
       if (error) throw error;
@@ -261,7 +266,7 @@ export function TeamLeaderSync() {
         nextSync: autoSyncEnabled ? new Date(Date.now() + parseInt(syncInterval) * 60 * 60 * 1000).toLocaleString() : null
       }));
 
-      toast.success(`Sync completed! Processed: ${data.processed}, Success: ${data.success}, Failed: ${data.failed}`);
+      toast.success(`${fullSync ? 'Full import' : 'Sync'} completed! Processed: ${data.processed}, Success: ${data.success}, Failed: ${data.failed}`);
     } catch (error) {
       console.error('Sync error:', error);
       setSyncStatus(prev => ({
@@ -429,12 +434,22 @@ export function TeamLeaderSync() {
           
           <div className="flex gap-4">
             <Button 
-              onClick={handleManualSync} 
+              onClick={() => handleManualSync(false)} 
               disabled={syncStatus.status === 'syncing' || !connection}
               className="flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${syncStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
-              {syncStatus.status === 'syncing' ? 'Syncing...' : 'Manual Sync'}
+              {syncStatus.status === 'syncing' ? 'Syncing...' : 'Quick Sync'}
+            </Button>
+            
+            <Button 
+              onClick={() => handleManualSync(true)} 
+              disabled={syncStatus.status === 'syncing' || !connection}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
+              {syncStatus.status === 'syncing' ? 'Importing...' : 'Full Import'}
             </Button>
             
             <div className="flex items-center gap-2">
