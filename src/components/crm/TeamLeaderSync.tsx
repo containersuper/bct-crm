@@ -239,13 +239,13 @@ export function TeamLeaderSync() {
     try {
       setSyncStatus(prev => ({ ...prev, progress: 10, message: fullSync ? 'Importing ALL data from TeamLeader...' : 'Importing from TeamLeader...' }));
       
-       const { data, error } = await supabase.functions.invoke('teamleader-sync', {
+      const { data, error } = await supabase.functions.invoke('teamleader-sync', {
         body: { 
           action: fullSync ? 'full_import' : 'sync', 
           syncType: 'all',
           fullSync: fullSync,
-          batchSize: fullSync ? 200 : 100,
-          maxPages: fullSync ? 15 : 5
+          batchSize: fullSync ? 250 : 100,
+          maxPages: fullSync ? 999 : 5  // Unlimited for full sync
         }
       });
 
@@ -453,7 +453,7 @@ export function TeamLeaderSync() {
             </Button>
             
             <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <span>💡 Quick: 500 records | Full: 3000+ records</span>
+              <span>💡 Quick: 500 records | Full: ALL RECORDS (unlimited)</span>
             </div>
           </div>
           

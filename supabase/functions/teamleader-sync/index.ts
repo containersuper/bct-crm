@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
       throw new Error('Invalid authentication token');
     }
 
-    const { action, syncType = 'all', fullSync = false, batchSize = 200, maxPages = 15 }: SyncRequest = await req.json();
+    const { action, syncType = 'all', fullSync = false, batchSize = 250, maxPages = 999 }: SyncRequest = await req.json();
 
     // Get TeamLeader connection for user
     const { data: connection, error: connectionError } = await supabase
@@ -359,10 +359,8 @@ async function importContacts(accessToken: string, supabase: any, userId: string
         }
       };
 
-      // For full sync, only use page numbers after first page, and limit to reasonable numbers
-      if (fullSync && page > 1 && page <= 20) { // Limit to 20 pages max for stability
-        requestBody.page.number = page;
-      } else if (!fullSync && page > 1) {
+      // For full sync, remove page limits to get ALL data
+      if (page > 1) {
         requestBody.page.number = page;
       }
 
@@ -473,15 +471,15 @@ async function importContacts(accessToken: string, supabase: any, userId: string
       totalPages++;
       page++;
 
-      // For full sync, continue until no more data
-      // For regular sync, stop after first page if not explicitly requesting full sync
-      if (!fullSync && totalPages >= 1) {
+      // For full sync, continue until no more data regardless of page count
+      // For quick sync, stop after maxPages
+      if (!fullSync && totalPages >= maxPages) {
         hasMoreData = false;
       }
 
-      // Rate limiting - small delay between requests
+      // Rate limiting to respect TeamLeader API
       if (hasMoreData) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200)); // Slightly longer delay for stability
       }
     }
 
@@ -520,10 +518,8 @@ async function importCompanies(accessToken: string, supabase: any, userId: strin
         }
       };
 
-      // For full sync, limit pagination to avoid API errors
-      if (fullSync && page > 1 && page <= 20) {
-        requestBody.page.number = page;
-      } else if (!fullSync && page > 1) {
+      // For full sync, remove page limits to get ALL data
+      if (page > 1) {
         requestBody.page.number = page;
       }
 
@@ -602,15 +598,15 @@ async function importCompanies(accessToken: string, supabase: any, userId: strin
       totalPages++;
       page++;
 
-      // For full sync, continue until no more data
-      // For regular sync, stop after first page if not explicitly requesting full sync
-      if (!fullSync && totalPages >= 1) {
+      // For full sync, continue until no more data regardless of page count
+      // For quick sync, stop after maxPages
+      if (!fullSync && totalPages >= maxPages) {
         hasMoreData = false;
       }
 
-      // Rate limiting - small delay between requests
+      // Rate limiting to respect TeamLeader API
       if (hasMoreData) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200)); // Slightly longer delay for stability
       }
     }
 
