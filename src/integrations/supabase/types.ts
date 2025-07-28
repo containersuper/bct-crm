@@ -711,6 +711,21 @@ export type Database = {
         Args: { p_account_id: string; p_start_date: string; p_end_date: string }
         Returns: boolean
       }
+      start_email_processing: {
+        Args: { p_job_type: string; p_batch_size?: number }
+        Returns: string
+      }
+      update_processing_job: {
+        Args: {
+          p_job_id: string
+          p_status: string
+          p_emails_processed?: number
+          p_success_count?: number
+          p_error_count?: number
+          p_error_details?: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       email_template_type:
