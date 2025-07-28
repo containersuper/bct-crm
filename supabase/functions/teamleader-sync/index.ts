@@ -7,7 +7,7 @@ const corsHeaders = {
 
 interface SyncRequest {
   action: 'sync' | 'import' | 'export' | 'full_import';
-  syncType?: 'contacts' | 'companies' | 'all';
+  syncType?: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects' | 'all';
   fullSync?: boolean;
   batchSize?: number;
   maxPages?: number;
