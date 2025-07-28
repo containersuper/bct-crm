@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, CheckCircle, Clock, RefreshCw, Settings, ArrowLeftRight, History, Calendar } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, RefreshCw, Settings, ArrowLeftRight, History, Calendar, LogIn } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SyncStatus {
-  status: 'idle' | 'syncing' | 'success' | 'error';
+  status: 'idle' | 'syncing' | 'success' | 'error' | 'disconnected' | 'connected';
   lastSync: string | null;
   nextSync: string | null;
   progress: number;
@@ -22,102 +23,212 @@ interface SyncStatus {
 }
 
 interface FieldMapping {
+  id?: string;
   ourField: string;
   teamLeaderField: string;
-  direction: 'bidirectional' | 'to_teamleader' | 'from_teamleader';
+  fieldType: 'contact' | 'company';
   enabled: boolean;
 }
 
 interface SyncHistoryItem {
   id: string;
-  timestamp: string;
-  type: 'manual' | 'auto';
-  status: 'success' | 'error' | 'partial';
-  recordsProcessed: number;
-  conflicts: number;
-  message: string;
+  sync_type: string;
+  status: string;
+  records_processed: number;
+  records_success: number;
+  records_failed: number;
+  started_at: string;
+  completed_at: string | null;
+  error_details?: any;
 }
 
 interface ConflictItem {
   id: string;
-  recordId: string;
-  field: string;
-  ourValue: string;
-  teamLeaderValue: string;
-  lastModified: {
-    ours: string;
-    teamLeader: string;
-  };
-  resolved: boolean;
+  record_type: string;
+  conflict_field: string;
+  our_value: string;
+  teamleader_value: string;
+  resolution: string;
+  created_at: string;
 }
 
-const defaultFieldMappings: FieldMapping[] = [
-  { ourField: 'name', teamLeaderField: 'name', direction: 'bidirectional', enabled: true },
-  { ourField: 'email', teamLeaderField: 'email', direction: 'bidirectional', enabled: true },
-  { ourField: 'company', teamLeaderField: 'company_name', direction: 'bidirectional', enabled: true },
-  { ourField: 'phone', teamLeaderField: 'telephone', direction: 'bidirectional', enabled: true },
-  { ourField: 'brand', teamLeaderField: 'custom_field_brand', direction: 'from_teamleader', enabled: false },
-];
+interface TeamLeaderConnection {
+  id: string;
+  access_token?: string;
+  refresh_token?: string;
+  token_expires_at?: string;
+  is_active: boolean;
+}
 
 export function TeamLeaderSync() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
-    status: 'idle',
-    lastSync: '2024-01-15 14:30:00',
-    nextSync: '2024-01-15 18:00:00',
+    status: 'disconnected',
+    lastSync: null,
+    nextSync: null,
     progress: 0,
-    message: 'Ready to sync'
+    message: 'Not connected to TeamLeader'
   });
 
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(defaultFieldMappings);
+  const [connection, setConnection] = useState<TeamLeaderConnection | null>(null);
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [syncInterval, setSyncInterval] = useState('4'); // hours
-  const [retryAttempts, setRetryAttempts] = useState(3);
-  const [conflicts, setConflicts] = useState<ConflictItem[]>([
-    {
-      id: '1',
-      recordId: 'customer_123',
-      field: 'phone',
-      ourValue: '+49 30 12345678',
-      teamLeaderValue: '+49 30 87654321',
-      lastModified: {
-        ours: '2024-01-15 12:00:00',
-        teamLeader: '2024-01-15 14:00:00'
-      },
-      resolved: false
-    }
-  ]);
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [syncHistory, setSyncHistory] = useState<SyncHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [syncHistory, setSyncHistory] = useState<SyncHistoryItem[]>([
-    {
-      id: '1',
-      timestamp: '2024-01-15 14:30:00',
-      type: 'auto',
-      status: 'success',
-      recordsProcessed: 156,
-      conflicts: 1,
-      message: 'Sync completed with 1 conflict'
-    },
-    {
-      id: '2',
-      timestamp: '2024-01-15 10:30:00',
-      type: 'manual',
-      status: 'success',
-      recordsProcessed: 23,
-      conflicts: 0,
-      message: 'Manual sync completed successfully'
-    },
-    {
-      id: '3',
-      timestamp: '2024-01-15 06:30:00',
-      type: 'auto',
-      status: 'error',
-      recordsProcessed: 0,
-      conflicts: 0,
-      message: 'Authentication failed - API key expired'
+  useEffect(() => {
+    checkConnection();
+    loadFieldMappings();
+    loadSyncHistory();
+    loadConflicts();
+  }, []);
+
+  const checkConnection = async () => {
+    try {
+      const { data: connections, error } = await supabase
+        .from('teamleader_connections')
+        .select('*')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (connections) {
+        setConnection(connections);
+        setSyncStatus(prev => ({
+          ...prev,
+          status: 'connected',
+          message: 'Connected to TeamLeader'
+        }));
+      }
+    } catch (error) {
+      console.error('Error checking connection:', error);
+      toast.error('Failed to check TeamLeader connection');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
+
+  const loadFieldMappings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teamleader_field_mappings')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at');
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setFieldMappings(data.map(mapping => ({
+          id: mapping.id,
+          ourField: mapping.our_field,
+          teamLeaderField: mapping.teamleader_field,
+          fieldType: mapping.field_type as 'contact' | 'company',
+          enabled: mapping.is_active
+        })));
+      } else {
+        // Create default mappings
+        await createDefaultMappings();
+      }
+    } catch (error) {
+      console.error('Error loading field mappings:', error);
+    }
+  };
+
+  const createDefaultMappings = async () => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const defaultMappings = [
+        { our_field: 'name', teamleader_field: 'first_name', field_type: 'contact', user_id: user.id },
+        { our_field: 'email', teamleader_field: 'email', field_type: 'contact', user_id: user.id },
+        { our_field: 'phone', teamleader_field: 'telephone', field_type: 'contact', user_id: user.id },
+        { our_field: 'company', teamleader_field: 'company_name', field_type: 'contact', user_id: user.id },
+        { our_field: 'name', teamleader_field: 'name', field_type: 'company', user_id: user.id },
+        { our_field: 'email', teamleader_field: 'email', field_type: 'company', user_id: user.id },
+        { our_field: 'phone', teamleader_field: 'telephone', field_type: 'company', user_id: user.id }
+      ];
+
+      const { data, error } = await supabase
+        .from('teamleader_field_mappings')
+        .insert(defaultMappings)
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setFieldMappings(data.map(mapping => ({
+          id: mapping.id,
+          ourField: mapping.our_field,
+          teamLeaderField: mapping.teamleader_field,
+          fieldType: mapping.field_type as 'contact' | 'company',
+          enabled: mapping.is_active
+        })));
+      }
+    } catch (error) {
+      console.error('Error creating default mappings:', error);
+    }
+  };
+
+  const loadSyncHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teamleader_sync_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setSyncHistory(data || []);
+    } catch (error) {
+      console.error('Error loading sync history:', error);
+    }
+  };
+
+  const loadConflicts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teamleader_conflicts')
+        .select('*')
+        .eq('resolution', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setConflicts(data || []);
+    } catch (error) {
+      console.error('Error loading conflicts:', error);
+    }
+  };
+
+  const handleAuthorization = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('teamleader-auth', {
+        body: { action: 'authorize' }
+      });
+
+      if (error) throw error;
+
+      // Open authorization URL in new window
+      window.open(data.authUrl, '_blank');
+      toast.info('Please complete authorization in the new window');
+    } catch (error) {
+      console.error('Authorization error:', error);
+      toast.error('Failed to start authorization');
+    }
+  };
 
   const handleManualSync = async () => {
+    if (!connection) {
+      toast.error('Please connect to TeamLeader first');
+      return;
+    }
+
     setSyncStatus({
       ...syncStatus,
       status: 'syncing',
@@ -125,58 +236,104 @@ export function TeamLeaderSync() {
       message: 'Starting sync...'
     });
 
-    // Simulate sync progress
-    const steps = [
-      { progress: 20, message: 'Connecting to TeamLeader...' },
-      { progress: 40, message: 'Fetching customer data...' },
-      { progress: 60, message: 'Processing updates...' },
-      { progress: 80, message: 'Resolving conflicts...' },
-      { progress: 100, message: 'Sync completed successfully!' }
-    ];
+    try {
+      // Start with import
+      setSyncStatus(prev => ({ ...prev, progress: 10, message: 'Importing from TeamLeader...' }));
+      
+      const { data, error } = await supabase.functions.invoke('teamleader-sync', {
+        body: { action: 'sync', syncType: 'all' }
+      });
 
-    for (const step of steps) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (error) throw error;
+
+      setSyncStatus(prev => ({ ...prev, progress: 100, message: 'Sync completed successfully!' }));
+
+      // Reload data
+      await Promise.all([
+        loadSyncHistory(),
+        loadConflicts()
+      ]);
+
       setSyncStatus(prev => ({
         ...prev,
-        progress: step.progress,
-        message: step.message
+        status: 'success',
+        lastSync: new Date().toLocaleString(),
+        nextSync: autoSyncEnabled ? new Date(Date.now() + parseInt(syncInterval) * 60 * 60 * 1000).toLocaleString() : null
       }));
+
+      toast.success(`Sync completed! Processed: ${data.processed}, Success: ${data.success}, Failed: ${data.failed}`);
+    } catch (error) {
+      console.error('Sync error:', error);
+      setSyncStatus(prev => ({
+        ...prev,
+        status: 'error',
+        message: error.message || 'Sync failed'
+      }));
+      toast.error('Sync failed: ' + (error.message || 'Unknown error'));
     }
-
-    setSyncStatus(prev => ({
-      ...prev,
-      status: 'success',
-      lastSync: new Date().toLocaleString(),
-      nextSync: new Date(Date.now() + parseInt(syncInterval) * 60 * 60 * 1000).toLocaleString()
-    }));
-
-    toast.success("Sync completed successfully!");
   };
 
-  const updateFieldMapping = (index: number, field: keyof FieldMapping, value: any) => {
-    const updated = [...fieldMappings];
-    updated[index] = { ...updated[index], [field]: value };
-    setFieldMappings(updated);
+  const updateFieldMapping = async (index: number, field: keyof FieldMapping, value: any) => {
+    const mapping = fieldMappings[index];
+    if (!mapping.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('teamleader_field_mappings')
+        .update({
+          [field === 'ourField' ? 'our_field' : 
+           field === 'teamLeaderField' ? 'teamleader_field' :
+           field === 'fieldType' ? 'field_type' :
+           field === 'enabled' ? 'is_active' : field]: value
+        })
+        .eq('id', mapping.id);
+
+      if (error) throw error;
+
+      const updated = [...fieldMappings];
+      updated[index] = { ...updated[index], [field]: value };
+      setFieldMappings(updated);
+    } catch (error) {
+      console.error('Error updating field mapping:', error);
+      toast.error('Failed to update field mapping');
+    }
   };
 
-  const resolveConflict = (conflictId: string, useOurValue: boolean) => {
-    setConflicts(prev => prev.map(conflict => 
-      conflict.id === conflictId 
-        ? { ...conflict, resolved: true }
-        : conflict
-    ));
-    
-    toast.success(`Conflict resolved using ${useOurValue ? 'our' : 'TeamLeader'} value`);
+  const resolveConflict = async (conflictId: string, useOurValue: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('teamleader_conflicts')
+        .update({
+          resolution: useOurValue ? 'use_ours' : 'use_theirs',
+          resolved_at: new Date().toISOString()
+        })
+        .eq('id', conflictId);
+
+      if (error) throw error;
+
+      setConflicts(prev => prev.filter(conflict => conflict.id !== conflictId));
+      toast.success(`Conflict resolved using ${useOurValue ? 'our' : 'TeamLeader'} value`);
+    } catch (error) {
+      console.error('Error resolving conflict:', error);
+      toast.error('Failed to resolve conflict');
+    }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'syncing':
+      case 'running':
         return <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />;
       case 'success':
+      case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'error':
+      case 'failed':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
+      case 'connected':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'disconnected':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -185,16 +342,45 @@ export function TeamLeaderSync() {
   const getStatusBadge = (status: string) => {
     const variants = {
       success: 'default',
+      completed: 'default',
       error: 'destructive',
+      failed: 'destructive',
       partial: 'secondary',
-      syncing: 'outline'
+      syncing: 'outline',
+      running: 'outline',
+      pending: 'outline'
     } as const;
     
     return <Badge variant={variants[status as keyof typeof variants] || 'outline'}>{status}</Badge>;
   };
 
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-8">
+          <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+          Loading TeamLeader integration...
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Connection Status */}
+      {!connection && (
+        <Alert>
+          <LogIn className="h-4 w-4" />
+          <AlertTitle>TeamLeader Not Connected</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p className="mb-3">Connect your TeamLeader account to start syncing customer data.</p>
+            <Button onClick={handleAuthorization}>
+              Connect to TeamLeader
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Sync Status Dashboard */}
       <Card>
         <CardHeader>
@@ -234,7 +420,7 @@ export function TeamLeaderSync() {
                 <span className="font-medium">Next Sync</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {autoSyncEnabled ? syncStatus.nextSync : 'Manual only'}
+                {autoSyncEnabled ? syncStatus.nextSync || 'Not scheduled' : 'Manual only'}
               </p>
             </div>
           </div>
@@ -244,7 +430,7 @@ export function TeamLeaderSync() {
           <div className="flex gap-4">
             <Button 
               onClick={handleManualSync} 
-              disabled={syncStatus.status === 'syncing'}
+              disabled={syncStatus.status === 'syncing' || !connection}
               className="flex items-center gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${syncStatus.status === 'syncing' ? 'animate-spin' : ''}`} />
@@ -255,6 +441,7 @@ export function TeamLeaderSync() {
               <Switch 
                 checked={autoSyncEnabled} 
                 onCheckedChange={setAutoSyncEnabled}
+                disabled={!connection}
               />
               <Label>Auto Sync</Label>
             </div>
@@ -266,8 +453,8 @@ export function TeamLeaderSync() {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
           <TabsTrigger value="conflicts">
-            Conflicts {conflicts.filter(c => !c.resolved).length > 0 && 
-            <Badge variant="destructive" className="ml-1">{conflicts.filter(c => !c.resolved).length}</Badge>}
+            Conflicts {conflicts.length > 0 && 
+            <Badge variant="destructive" className="ml-1">{conflicts.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -282,7 +469,7 @@ export function TeamLeaderSync() {
             <CardContent>
               <div className="space-y-4">
                 {fieldMappings.map((mapping, index) => (
-                  <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
+                  <div key={mapping.id || index} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border rounded-lg">
                     <div>
                       <Label>Our Field</Label>
                       <Input 
@@ -304,18 +491,17 @@ export function TeamLeaderSync() {
                     </div>
                     
                     <div>
-                      <Label>Direction</Label>
+                      <Label>Type</Label>
                       <Select 
-                        value={mapping.direction} 
-                        onValueChange={(value) => updateFieldMapping(index, 'direction', value)}
+                        value={mapping.fieldType} 
+                        onValueChange={(value) => updateFieldMapping(index, 'fieldType', value)}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="bidirectional">Bidirectional</SelectItem>
-                          <SelectItem value="to_teamleader">To TeamLeader</SelectItem>
-                          <SelectItem value="from_teamleader">From TeamLeader</SelectItem>
+                          <SelectItem value="contact">Contact</SelectItem>
+                          <SelectItem value="company">Company</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -328,18 +514,6 @@ export function TeamLeaderSync() {
                     </div>
                   </div>
                 ))}
-                
-                <Button 
-                  variant="outline" 
-                  onClick={() => setFieldMappings([...fieldMappings, { 
-                    ourField: '', 
-                    teamLeaderField: '', 
-                    direction: 'bidirectional', 
-                    enabled: true 
-                  }])}
-                >
-                  Add Field Mapping
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -352,7 +526,7 @@ export function TeamLeaderSync() {
               <CardTitle>Data Conflicts</CardTitle>
             </CardHeader>
             <CardContent>
-              {conflicts.filter(c => !c.resolved).length === 0 ? (
+              {conflicts.length === 0 ? (
                 <div className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
                   <p className="text-lg font-medium">No conflicts to resolve</p>
@@ -360,18 +534,15 @@ export function TeamLeaderSync() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {conflicts.filter(c => !c.resolved).map((conflict) => (
+                  {conflicts.map((conflict) => (
                     <Alert key={conflict.id}>
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Conflict in {conflict.field} for record {conflict.recordId}</AlertTitle>
+                      <AlertTitle>Conflict in {conflict.conflict_field}</AlertTitle>
                       <AlertDescription className="mt-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="p-3 border rounded">
                             <div className="font-medium">Our Value</div>
-                            <div className="text-sm text-muted-foreground mb-2">
-                              Modified: {conflict.lastModified.ours}
-                            </div>
-                            <div className="font-mono">{conflict.ourValue}</div>
+                            <div className="font-mono">{conflict.our_value}</div>
                             <Button 
                               size="sm" 
                               className="mt-2"
@@ -383,10 +554,7 @@ export function TeamLeaderSync() {
                           
                           <div className="p-3 border rounded">
                             <div className="font-medium">TeamLeader Value</div>
-                            <div className="text-sm text-muted-foreground mb-2">
-                              Modified: {conflict.lastModified.teamLeader}
-                            </div>
-                            <div className="font-mono">{conflict.teamLeaderValue}</div>
+                            <div className="font-mono">{conflict.teamleader_value}</div>
                             <Button 
                               size="sm" 
                               variant="outline" 
@@ -417,25 +585,33 @@ export function TeamLeaderSync() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {syncHistory.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={item.type === 'manual' ? 'default' : 'secondary'}>
-                          {item.type}
-                        </Badge>
-                        {getStatusBadge(item.status)}
-                        <span className="text-sm text-muted-foreground">{item.timestamp}</span>
-                      </div>
-                      <p className="text-sm">{item.message}</p>
-                      <div className="flex gap-4 text-xs text-muted-foreground">
-                        <span>Records: {item.recordsProcessed}</span>
-                        {item.conflicts > 0 && <span>Conflicts: {item.conflicts}</span>}
-                      </div>
-                    </div>
-                    {getStatusIcon(item.status)}
+                {syncHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-lg font-medium">No sync history</p>
+                    <p className="text-muted-foreground">Run your first sync to see history</p>
                   </div>
-                ))}
+                ) : (
+                  syncHistory.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{item.sync_type}</Badge>
+                          {getStatusBadge(item.status)}
+                          <span className="text-sm text-muted-foreground">
+                            {new Date(item.started_at).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex gap-4 text-xs text-muted-foreground">
+                          <span>Processed: {item.records_processed}</span>
+                          <span>Success: {item.records_success}</span>
+                          {item.records_failed > 0 && <span>Failed: {item.records_failed}</span>}
+                        </div>
+                      </div>
+                      {getStatusIcon(item.status)}
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -467,58 +643,38 @@ export function TeamLeaderSync() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
-                  <div>
-                    <Label htmlFor="retry-attempts">Retry Attempts on Failure</Label>
-                    <Input 
-                      id="retry-attempts"
-                      type="number" 
-                      min="1" 
-                      max="10"
-                      value={retryAttempts}
-                      onChange={(e) => setRetryAttempts(parseInt(e.target.value))}
-                    />
-                  </div>
                 </div>
                 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <Label>Enable Auto Sync</Label>
-                    <Switch checked={autoSyncEnabled} onCheckedChange={setAutoSyncEnabled} />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label>Sync on Startup</Label>
-                    <Switch defaultChecked />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <Label>Email Notifications</Label>
-                    <Switch defaultChecked />
+                    <Label>Auto Sync Enabled</Label>
+                    <Switch 
+                      checked={autoSyncEnabled} 
+                      onCheckedChange={setAutoSyncEnabled}
+                      disabled={!connection}
+                    />
                   </div>
                 </div>
               </div>
-              
-              <Separator />
-              
-              <div className="space-y-4">
-                <h4 className="font-medium">TeamLeader API Configuration</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>API Endpoint</Label>
-                    <Input defaultValue="https://api.teamleader.eu" disabled />
-                  </div>
-                  <div>
-                    <Label>Connection Status</Label>
-                    <div className="flex items-center gap-2 mt-2">
-                      <CheckCircle className="h-4 w-4 text-green-500" />
-                      <span className="text-sm">Connected</span>
+
+              {connection && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">TeamLeader Connection</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Connected and ready to sync
+                      </p>
                     </div>
+                    <Button 
+                      variant="outline" 
+                      onClick={handleAuthorization}
+                    >
+                      Reconnect
+                    </Button>
                   </div>
                 </div>
-              </div>
-              
-              <Button>Save Settings</Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -702,6 +702,153 @@ export type Database = {
           },
         ]
       }
+      teamleader_conflicts: {
+        Row: {
+          conflict_field: string
+          created_at: string | null
+          id: string
+          our_record_id: number | null
+          our_value: string | null
+          record_type: string
+          resolution: string | null
+          resolved_at: string | null
+          teamleader_record_id: string | null
+          teamleader_value: string | null
+          user_id: string
+        }
+        Insert: {
+          conflict_field: string
+          created_at?: string | null
+          id?: string
+          our_record_id?: number | null
+          our_value?: string | null
+          record_type: string
+          resolution?: string | null
+          resolved_at?: string | null
+          teamleader_record_id?: string | null
+          teamleader_value?: string | null
+          user_id: string
+        }
+        Update: {
+          conflict_field?: string
+          created_at?: string | null
+          id?: string
+          our_record_id?: number | null
+          our_value?: string | null
+          record_type?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          teamleader_record_id?: string | null
+          teamleader_value?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teamleader_connections: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teamleader_field_mappings: {
+        Row: {
+          created_at: string | null
+          field_type: string
+          id: string
+          is_active: boolean | null
+          our_field: string
+          teamleader_field: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          field_type: string
+          id?: string
+          is_active?: boolean | null
+          our_field: string
+          teamleader_field: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          field_type?: string
+          id?: string
+          is_active?: boolean | null
+          our_field?: string
+          teamleader_field?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      teamleader_sync_history: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          error_details: Json | null
+          id: string
+          records_failed: number | null
+          records_processed: number | null
+          records_success: number | null
+          started_at: string | null
+          status: string
+          sync_type: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          id?: string
+          records_failed?: number | null
+          records_processed?: number | null
+          records_success?: number | null
+          started_at?: string | null
+          status?: string
+          sync_type: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          error_details?: Json | null
+          id?: string
+          records_failed?: number | null
+          records_processed?: number | null
+          records_success?: number | null
+          started_at?: string | null
+          status?: string
+          sync_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
