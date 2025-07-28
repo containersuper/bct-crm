@@ -14,6 +14,142 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_performance_metrics: {
+        Row: {
+          context: Json | null
+          created_at: string
+          id: string
+          measured_at: string
+          metric_type: string
+          metric_value: number
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          measured_at?: string
+          metric_type: string
+          metric_value: number
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          id?: string
+          measured_at?: string
+          metric_type?: string
+          metric_value?: number
+        }
+        Relationships: []
+      }
+      ai_responses: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          created_by: string | null
+          email_id: number
+          id: string
+          is_sent: boolean | null
+          language: string
+          response_content: string
+          tone: string | null
+          updated_at: string
+          version: number | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          email_id: number
+          id?: string
+          is_sent?: boolean | null
+          language?: string
+          response_content: string
+          tone?: string | null
+          updated_at?: string
+          version?: number | null
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          created_by?: string | null
+          email_id?: number
+          id?: string
+          is_sent?: boolean | null
+          language?: string
+          response_content?: string
+          tone?: string | null
+          updated_at?: string
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_responses_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "email_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_intelligence: {
+        Row: {
+          ai_summary: string | null
+          business_patterns: Json | null
+          communication_style: Json | null
+          created_at: string
+          customer_id: number
+          decision_factors: Json | null
+          id: string
+          last_analysis: string
+          lifetime_value: number | null
+          next_best_action: string | null
+          opportunity_score: number | null
+          price_sensitivity: string | null
+          risk_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          business_patterns?: Json | null
+          communication_style?: Json | null
+          created_at?: string
+          customer_id: number
+          decision_factors?: Json | null
+          id?: string
+          last_analysis?: string
+          lifetime_value?: number | null
+          next_best_action?: string | null
+          opportunity_score?: number | null
+          price_sensitivity?: string | null
+          risk_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          business_patterns?: Json | null
+          communication_style?: Json | null
+          created_at?: string
+          customer_id?: number
+          decision_factors?: Json | null
+          id?: string
+          last_analysis?: string
+          lifetime_value?: number | null
+          next_best_action?: string | null
+          opportunity_score?: number | null
+          price_sensitivity?: string | null
+          risk_score?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_intelligence_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           brand: string | null
@@ -115,6 +251,59 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      email_analytics: {
+        Row: {
+          analysis_timestamp: string
+          created_at: string
+          email_id: number
+          entities: Json | null
+          id: string
+          intent: string
+          intent_confidence: number | null
+          key_phrases: Json | null
+          language: string
+          sentiment: string
+          sentiment_score: number | null
+          urgency: string
+        }
+        Insert: {
+          analysis_timestamp?: string
+          created_at?: string
+          email_id: number
+          entities?: Json | null
+          id?: string
+          intent?: string
+          intent_confidence?: number | null
+          key_phrases?: Json | null
+          language?: string
+          sentiment?: string
+          sentiment_score?: number | null
+          urgency?: string
+        }
+        Update: {
+          analysis_timestamp?: string
+          created_at?: string
+          email_id?: number
+          entities?: Json | null
+          id?: string
+          intent?: string
+          intent_confidence?: number | null
+          key_phrases?: Json | null
+          language?: string
+          sentiment?: string
+          sentiment_score?: number | null
+          urgency?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_analytics_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "email_history"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_backfill_progress: {
         Row: {
