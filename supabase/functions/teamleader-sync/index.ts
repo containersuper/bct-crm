@@ -305,6 +305,8 @@ async function importContacts(accessToken: string, supabase: any, userId: string
       // Bulk insert contacts
       if (contactsToInsert.length > 0) {
         try {
+          console.log('Processing bulk insert with data sample:', JSON.stringify(contactsToInsert.slice(0, 2), null, 2));
+          
           const { error: insertError } = await supabase
             .from('customers')
             .upsert(contactsToInsert, { onConflict: 'teamleader_id' });
