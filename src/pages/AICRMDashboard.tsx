@@ -9,6 +9,7 @@ import { CustomerIntelligenceProfile } from '@/components/ai/CustomerIntelligenc
 import { SmartPricingCalculator } from '@/components/ai/SmartPricingCalculator';
 import { AIAssistantChat } from '@/components/ai/AIAssistantChat';
 import { GmailTokenManager } from '@/components/email/GmailTokenManager';
+import { EmailInboxIntegrated } from '@/components/email/EmailInboxIntegrated';
 import { AnalysisManager } from '@/components/ai/AnalysisManager';
 import { Brain, MessageCircle, User, Calculator, BarChart3, AlertTriangle } from 'lucide-react';
 
@@ -127,12 +128,38 @@ export default function AICRMDashboard() {
         </TabsList>
 
         <TabsContent value="analysis" className="mt-6">
-          <EmailAnalysisDashboard 
-            email={currentEmail}
-            onGenerateResponse={() => setSelectedTab('response')}
-            onCreateQuote={() => setSelectedTab('pricing')}
-            onMarkProcessed={() => {}}
-          />
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-2">
+              <EmailInboxIntegrated 
+                onEmailSelect={(email) => {
+                  setSelectedTab('response');
+                  // Convert email format for compatibility
+                  const convertedEmail = {
+                    id: parseInt(email.id.toString()),
+                    subject: email.subject || '',
+                    from_address: email.from_address || '',
+                    to_address: email.to_address || '',
+                    body: email.body || '',
+                    received_at: email.received_at || '',
+                    direction: email.direction || 'incoming',
+                    processed: email.processed || false,
+                    brand: email.brand || ''
+                  };
+                  // Store selected email for other tabs
+                  (window as any).selectedEmail = convertedEmail;
+                }}
+                onCreateQuote={() => setSelectedTab('pricing')}
+              />
+            </div>
+            <div>
+              <EmailAnalysisDashboard 
+                email={currentEmail}
+                onGenerateResponse={() => setSelectedTab('response')}
+                onCreateQuote={() => setSelectedTab('pricing')}
+                onMarkProcessed={() => {}}
+              />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="response" className="mt-6">
