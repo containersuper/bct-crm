@@ -239,6 +239,9 @@ async function importContacts(accessToken: string, supabase: any, userId: string
       const contacts: TeamLeaderContact[] = data.data || [];
       
       console.log(`Received ${contacts.length} contacts on page ${page}`);
+      if (contacts.length > 0) {
+        console.log('Sample contact:', JSON.stringify(contacts[0], null, 2));
+      }
 
       if (contacts.length === 0) {
         hasMoreData = false;
@@ -393,6 +396,9 @@ async function importCompanies(accessToken: string, supabase: any, userId: strin
       const companies: TeamLeaderCompany[] = data.data || [];
       
       console.log(`Received ${companies.length} companies on page ${page}`);
+      if (companies.length > 0) {
+        console.log('Sample company:', JSON.stringify(companies[0], null, 2));
+      }
 
       if (companies.length === 0) {
         hasMoreData = false;
