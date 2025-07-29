@@ -12,32 +12,43 @@ interface BatchImportRequest {
 }
 
 serve(async (req) => {
+  console.log(`Request method: ${req.method}`);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Creating Supabase client...');
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Get user from JWT
-    const authHeader = req.headers.get('Authorization')!;
+    console.log('Extracting user from JWT...');
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header found');
+    }
+    
     const token = authHeader.replace('Bearer ', '');
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
 
     if (authError || !user) {
+      console.error('Auth error:', authError);
       throw new Error('Authentication required');
     }
 
-    const { importType, batchSize = 100 }: BatchImportRequest = await req.json();
+    console.log(`User authenticated: ${user.id}`);
 
-    console.log(`Starting batch import for user ${user.id}, type: ${importType}, batch size: ${batchSize}`);
+    const { importType, batchSize = 100 }: BatchImportRequest = await req.json();
+    console.log(`Import request: type=${importType}, batchSize=${batchSize}`);
 
     // Get or create batch import progress record
     let progressRecord = await getOrCreateProgressRecord(supabaseClient, user.id, importType, batchSize);
+    console.log(`Progress record: ${progressRecord.id}, status: ${progressRecord.status}`);
 
     if (progressRecord.status === 'completed') {
       return new Response(JSON.stringify({
@@ -50,6 +61,7 @@ serve(async (req) => {
     }
 
     // Get TeamLeader connection
+    console.log('Getting TeamLeader connection...');
     const { data: connection, error: connError } = await supabaseClient
       .from('teamleader_connections')
       .select('access_token')
@@ -58,12 +70,15 @@ serve(async (req) => {
       .single();
 
     if (connError || !connection) {
+      console.error('Connection error:', connError);
       throw new Error('TeamLeader connection not found');
     }
 
+    console.log('TeamLeader connection found');
+
     // Calculate starting point for this batch
     const startPage = progressRecord.last_imported_page + 1;
-    console.log(`Importing batch starting from page ${startPage}`);
+    console.log(`Starting import from page ${startPage}`);
 
     // Import the batch
     const result = await importBatch(
@@ -73,6 +88,8 @@ serve(async (req) => {
       batchSize,
       supabaseClient
     );
+
+    console.log(`Import completed: imported=${result.imported}, errors=${result.errors.length}`);
 
     // Update progress record
     const newTotalImported = progressRecord.total_imported + result.imported;
@@ -122,6 +139,8 @@ serve(async (req) => {
 });
 
 async function getOrCreateProgressRecord(supabaseClient: any, userId: string, importType: string, batchSize: number) {
+  console.log(`Getting progress record for user ${userId}, type ${importType}`);
+  
   // Try to get existing progress record
   const { data: existing } = await supabaseClient
     .from('teamleader_batch_import_progress')
@@ -129,12 +148,14 @@ async function getOrCreateProgressRecord(supabaseClient: any, userId: string, im
     .eq('user_id', userId)
     .eq('import_type', importType)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
 
   if (existing) {
+    console.log('Found existing progress record');
     return existing;
   }
 
+  console.log('Creating new progress record');
   // Create new progress record
   const { data: newRecord, error } = await supabaseClient
     .from('teamleader_batch_import_progress')
@@ -148,6 +169,7 @@ async function getOrCreateProgressRecord(supabaseClient: any, userId: string, im
     .single();
 
   if (error) {
+    console.error('Error creating progress record:', error);
     throw new Error(`Failed to create progress record: ${error.message}`);
   }
 
@@ -168,6 +190,9 @@ async function importBatch(accessToken: string, importType: string, startPage: n
   });
 
   if (!response.ok) {
+    console.error(`TeamLeader API error: ${response.status} ${response.statusText}`);
+    const errorText = await response.text();
+    console.error(`Error response: ${errorText}`);
     throw new Error(`TeamLeader API error: ${response.status} ${response.statusText}`);
   }
 
@@ -175,7 +200,7 @@ async function importBatch(accessToken: string, importType: string, startPage: n
   const records = data.data || [];
   const hasMore = data.meta?.pagination?.has_more || false;
 
-  console.log(`Received ${records.length} records from TeamLeader`);
+  console.log(`Received ${records.length} records from TeamLeader, hasMore: ${hasMore}`);
 
   const errors = [];
   let imported = 0;
