@@ -1,269 +1,232 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-serve(async (req) => {
-  console.log("=== TEAMLEADER BATCH IMPORT START ===");
-  
-  // Handle CORS
+interface BatchImportRequest {
+  importType: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects';
+  batchSize?: number;
+}
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Environment check
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
-    const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    
-    if (!SUPABASE_URL || !SUPABASE_KEY) {
-      throw new Error('Missing Supabase environment variables');
-    }
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    // Parse request
-    const body = await req.json();
-    const { importType, batchSize = 100 } = body;
-    console.log(`Import request: ${importType}, batchSize: ${batchSize}`);
-
-    // Get auth token  
+    // Get user from auth header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('No Authorization header');
+      throw new Error('No authorization header');
     }
-    const token = authHeader.replace('Bearer ', '');
 
-    // Authenticate user
-    console.log("Authenticating user...");
-    const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_KEY
-      }
-    });
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
 
-    if (!userResponse.ok) {
+    if (authError || !user) {
       throw new Error('Authentication failed');
     }
 
-    const user = await userResponse.json();
-    console.log(`User authenticated: ${user.id}`);
+    console.log('User authenticated:', user.id);
 
-    // Get TeamLeader connection
-    console.log("Getting TeamLeader connection...");
-    const connectionResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/teamleader_connections?user_id=eq.${user.id}&is_active=eq.true&select=access_token,refresh_token,token_expires_at`, 
-      {
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'apikey': SUPABASE_KEY
-        }
-      }
-    );
+    const { importType, batchSize = 100 }: BatchImportRequest = await req.json();
+    console.log(`Starting batch import of ${importType} with batch size ${batchSize}`);
 
-    if (!connectionResponse.ok) {
-      throw new Error('Failed to get TeamLeader connection');
-    }
+    // Get active TeamLeader connection
+    const { data: connection, error: connectionError } = await supabase
+      .from('teamleader_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .single();
 
-    const connections = await connectionResponse.json();
-    if (!connections || connections.length === 0) {
+    if (connectionError || !connection) {
       throw new Error('No active TeamLeader connection found');
     }
 
-    const connection = connections[0];
+    console.log('Found TeamLeader connection');
+
+    // Check if token needs refresh
     let accessToken = connection.access_token;
-    
-    // Check if token is expired and refresh if needed
-    const tokenExpiresAt = new Date(connection.token_expires_at);
-    const now = new Date();
-    
-    if (tokenExpiresAt <= now) {
-      console.log("Access token expired, refreshing...");
+    if (new Date(connection.token_expires_at) <= new Date()) {
+      console.log('Token expired, refreshing...');
       
-      const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID');
-      const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET');
-      
-      if (!clientId || !clientSecret) {
-        throw new Error('TeamLeader client credentials not configured');
-      }
-      
-      console.log(`Refreshing token with client ID: ${clientId.substring(0, 8)}...`);
-      
-      // Refresh the token
       const refreshResponse = await fetch('https://app.teamleader.eu/oauth2/access_token', {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json'
         },
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: connection.refresh_token,
-          client_id: clientId,
-          client_secret: clientSecret,
+          client_id: Deno.env.get('TEAMLEADER_CLIENT_ID')!,
+          client_secret: Deno.env.get('TEAMLEADER_CLIENT_SECRET')!,
         }),
       });
-      
-      console.log(`Token refresh response status: ${refreshResponse.status}`);
-      
+
+      const refreshData = await refreshResponse.json();
       if (!refreshResponse.ok) {
-        const errorText = await refreshResponse.text();
-        console.error(`Token refresh failed: ${errorText}`);
-        throw new Error(`Failed to refresh TeamLeader token: ${refreshResponse.status} - ${errorText}`);
+        console.error('Token refresh failed:', refreshData);
+        throw new Error(`Token refresh failed: ${refreshResponse.status} - ${JSON.stringify(refreshData)}`);
       }
-      
-      const tokenData = await refreshResponse.json();
-      accessToken = tokenData.access_token;
-      
-      console.log("Token refreshed successfully, updating database...");
-      
-      // Update the connection with new token
-      const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/teamleader_connections?id=eq.${connection.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'apikey': SUPABASE_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          access_token: tokenData.access_token,
-          refresh_token: tokenData.refresh_token || connection.refresh_token,
-          token_expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
-          updated_at: new Date().toISOString()
+
+      accessToken = refreshData.access_token;
+      await supabase
+        .from('teamleader_connections')
+        .update({
+          access_token: refreshData.access_token,
+          refresh_token: refreshData.refresh_token,
+          token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000),
+          updated_at: new Date(),
         })
-      });
-      
-      if (!updateResponse.ok) {
-        console.warn('Failed to update token in database, but continuing with fresh token');
-      } else {
-        console.log("Database updated with new token");
-      }
-    } else {
-      console.log("Token is still valid, no refresh needed");
+        .eq('id', connection.id);
     }
-    
-    console.log("TeamLeader connection ready");
 
-    // Call TeamLeader API
-    console.log(`Fetching ${importType} from TeamLeader...`);
+    // Get TeamLeader endpoint and Supabase table
     const endpoint = getTeamLeaderEndpoint(importType);
-    const teamleaderUrl = `https://api.teamleader.eu/${endpoint}?page[size]=${Math.min(batchSize, 50)}&page[number]=1`;
-    
-    const teamleaderResponse = await fetch(teamleaderUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    });
-
-    if (!teamleaderResponse.ok) {
-      const errorText = await teamleaderResponse.text();
-      console.error(`TeamLeader API error: ${teamleaderResponse.status} - ${errorText}`);
-      throw new Error(`TeamLeader API error: ${teamleaderResponse.status}`);
-    }
-
-    const teamleaderData = await teamleaderResponse.json();
-    console.log(`TeamLeader API response:`, JSON.stringify(teamleaderData, null, 2));
-    
-    const records = teamleaderData.data || [];
-    const hasMore = teamleaderData.meta?.pagination?.has_more || false;
-    
-    console.log(`TeamLeader returned ${records.length} records, hasMore: ${hasMore}`);
-
-    // Import records to Supabase
-    let imported = 0;
-    const errors = [];
     const table = getSupabaseTable(importType);
-    
-    console.log(`Importing to table: ${table}`);
 
-    for (const record of records) {
-      try {
-        const mappedRecord = mapTeamLeaderRecord(record, importType);
-        if (mappedRecord) {
-          // Upsert to Supabase
-          const upsertResponse = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${SUPABASE_KEY}`,
-              'apikey': SUPABASE_KEY,
-              'Content-Type': 'application/json',
-              'Prefer': 'resolution=merge-duplicates'
-            },
-            body: JSON.stringify(mappedRecord)
+    let totalImported = 0;
+    let page = 1;
+    let hasMore = true;
+    const errors: any[] = [];
+
+    console.log(`Starting batch import of all ${importType}...`);
+
+    while (hasMore) {
+      console.log(`Importing page ${page} of ${importType}...`);
+
+      // Fetch data from TeamLeader
+      const teamleaderResponse = await fetch(
+        `https://api.teamleader.eu/${endpoint}?page[size]=${batchSize}&page[number]=${page}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+          },
+        }
+      );
+
+      if (!teamleaderResponse.ok) {
+        const errorText = await teamleaderResponse.text();
+        console.error(`TeamLeader API error: ${teamleaderResponse.status} - ${errorText}`);
+        throw new Error(`TeamLeader API error: ${teamleaderResponse.status}`);
+      }
+
+      const teamleaderData = await teamleaderResponse.json();
+      const records = teamleaderData.data || [];
+
+      console.log(`Retrieved ${records.length} ${importType} from page ${page}`);
+      console.log(`Sample record:`, records[0] ? JSON.stringify(records[0], null, 2) : 'No records');
+
+      if (records.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      // Map and upsert records
+      const mappedRecords = records.map((record: any) => {
+        try {
+          return mapTeamLeaderRecord(record, importType);
+        } catch (error) {
+          console.error(`Error mapping record ${record.id}:`, error);
+          errors.push({ page, recordId: record.id, error: error.message });
+          return null;
+        }
+      }).filter(Boolean);
+
+      console.log(`Mapped ${mappedRecords.length} records for page ${page}`);
+
+      if (mappedRecords.length > 0) {
+        const { error: upsertError } = await supabase
+          .from(table)
+          .upsert(mappedRecords, { 
+            onConflict: 'teamleader_id',
+            ignoreDuplicates: false 
           });
 
-          if (upsertResponse.ok) {
-            imported++;
-            console.log(`Imported record: ${record.id}`);
-          } else {
-            const errorText = await upsertResponse.text();
-            console.error(`Failed to import record ${record.id}: ${errorText}`);
-            errors.push({ id: record.id, error: errorText });
-          }
+        if (upsertError) {
+          console.error(`Error upserting ${importType}:`, upsertError);
+          errors.push({ page, error: upsertError.message });
+        } else {
+          totalImported += mappedRecords.length;
+          console.log(`Successfully imported ${mappedRecords.length} ${importType} from page ${page}`);
         }
-      } catch (error) {
-        console.error(`Error processing record ${record.id}:`, error);
-        errors.push({ id: record.id, error: error.message });
+      }
+
+      // Check if there are more pages
+      const meta = teamleaderData.meta;
+      if (meta && meta.page && meta.page.count < batchSize) {
+        hasMore = false;
+      } else if (records.length < batchSize) {
+        hasMore = false;
+      } else {
+        page++;
       }
     }
 
-    console.log(`Import completed: ${imported} records imported, ${errors.length} errors`);
+    console.log(`Batch import completed. Total imported: ${totalImported} ${importType}, Total pages: ${page - 1}, Errors: ${errors.length}`);
 
-    const response = {
-      success: true,
-      imported,
-      errors,
-      hasMore,
-      message: `Imported ${imported} ${importType} records`,
-      debug: {
-        totalRecords: records.length,
-        table,
-        endpoint,
-        timestamp: new Date().toISOString()
+    return new Response(
+      JSON.stringify({
+        success: true,
+        imported: totalImported,
+        pages: page - 1,
+        errors: errors.length > 0 ? errors : undefined,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
       }
-    };
-
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    );
 
   } catch (error) {
-    console.error("Error:", error.message);
-    
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error('Batch import error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500,
+      }
+    );
   }
 });
 
 function getTeamLeaderEndpoint(importType: string): string {
-  const endpoints = {
-    contacts: 'contacts.list',
-    companies: 'companies.list',
-    deals: 'deals.list',
-    invoices: 'invoices.list',
-    quotes: 'quotations.list',
-    projects: 'projects.list'
-  };
-  return endpoints[importType] || 'contacts.list';
+  switch (importType) {
+    case 'contacts': return 'contacts.list';
+    case 'companies': return 'companies.list';
+    case 'deals': return 'deals.list';
+    case 'invoices': return 'invoices.list';
+    case 'quotes': return 'quotations.list';
+    case 'projects': return 'projects.list';
+    default: throw new Error(`Unknown import type: ${importType}`);
+  }
 }
 
 function getSupabaseTable(importType: string): string {
-  const tables = {
-    contacts: 'customers',
-    companies: 'customers',
-    deals: 'teamleader_deals',
-    invoices: 'teamleader_invoices',
-    quotes: 'teamleader_quotes', 
-    projects: 'teamleader_projects'
-  };
-  return tables[importType] || 'customers';
+  switch (importType) {
+    case 'contacts': return 'customers';
+    case 'companies': return 'customers';
+    case 'deals': return 'teamleader_deals';
+    case 'invoices': return 'teamleader_invoices';
+    case 'quotes': return 'teamleader_quotes';
+    case 'projects': return 'teamleader_projects';
+    default: throw new Error(`Unknown import type: ${importType}`);
+  }
 }
 
 function mapTeamLeaderRecord(record: any, importType: string): any {
@@ -272,68 +235,75 @@ function mapTeamLeaderRecord(record: any, importType: string): any {
       return {
         teamleader_id: record.id,
         name: `${record.first_name || ''} ${record.last_name || ''}`.trim(),
-        email: record.email,
-        phone: record.telephone,
-        company: record.company?.name || null
+        email: record.emails?.[0]?.email || null,
+        phone: record.telephones?.[0]?.number || null,
+        company: record.companies?.[0]?.name || null,
+        brand: 'TeamLeader',
+        created_at: new Date(),
       };
-    
     case 'companies':
       return {
         teamleader_id: record.id,
         name: record.name,
-        email: record.email,
-        phone: record.telephone,
-        company: record.name
+        email: record.emails?.[0]?.email || null,
+        phone: record.telephones?.[0]?.number || null,
+        company: record.name,
+        brand: 'TeamLeader',
+        created_at: new Date(),
       };
-    
     case 'deals':
       return {
         teamleader_id: record.id,
         title: record.title,
-        description: record.description,
-        value: record.estimated_value?.amount || 0,
+        description: record.summary,
+        value: record.estimated_value?.amount ? parseFloat(record.estimated_value.amount) : null,
         currency: record.estimated_value?.currency || 'EUR',
         phase: record.phase?.name,
-        probability: record.estimated_probability,
+        probability: record.estimated_probability ? parseFloat(record.estimated_probability) : null,
         expected_closing_date: record.estimated_closing_date,
-        actual_closing_date: record.closed_at ? new Date(record.closed_at).toISOString().split('T')[0] : null,
+        actual_closing_date: record.closed_at,
         contact_id: record.contact?.id,
         company_id: record.company?.id,
         responsible_user_id: record.responsible_user?.id,
-        lead_source: record.lead_source?.name
+        lead_source: record.lead?.source?.name,
+        created_at: new Date(),
+        updated_at: new Date(),
       };
-    
     case 'invoices':
       return {
         teamleader_id: record.id,
         invoice_number: record.invoice_number,
-        title: record.title,
-        description: record.description,
-        total_price: record.total?.amount || 0,
+        title: record.subject,
+        description: record.note,
+        total_price: record.total?.amount ? parseFloat(record.total.amount) : null,
         currency: record.total?.currency || 'EUR',
         status: record.status,
         invoice_date: record.invoice_date,
-        due_date: record.due_date,
-        payment_date: record.paid_at ? new Date(record.paid_at).toISOString().split('T')[0] : null,
+        due_date: record.due_on,
+        payment_date: record.paid_at,
         contact_id: record.contact?.id,
-        company_id: record.company?.id
+        company_id: record.company?.id,
+        deal_id: record.deal?.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       };
-    
     case 'quotes':
       return {
         teamleader_id: record.id,
         quote_number: record.quotation_number,
-        title: record.title,
-        description: record.description,
-        total_price: record.total?.amount || 0,
+        title: record.subject,
+        description: record.note,
+        total_price: record.total?.amount ? parseFloat(record.total.amount) : null,
         currency: record.total?.currency || 'EUR',
         status: record.status,
-        quote_date: record.sent_at ? new Date(record.sent_at).toISOString().split('T')[0] : null,
+        quote_date: record.sent_at,
         valid_until: record.expires_on,
         contact_id: record.contact?.id,
-        company_id: record.company?.id
+        company_id: record.company?.id,
+        deal_id: record.deal?.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       };
-    
     case 'projects':
       return {
         teamleader_id: record.id,
@@ -341,14 +311,15 @@ function mapTeamLeaderRecord(record: any, importType: string): any {
         description: record.description,
         status: record.status,
         start_date: record.starts_on,
-        end_date: record.ends_on,
-        budget: record.budget?.amount || 0,
+        end_date: record.due_on,
+        budget: record.budget?.amount ? parseFloat(record.budget.amount) : null,
         currency: record.budget?.currency || 'EUR',
         company_id: record.company?.id,
-        responsible_user_id: record.responsible_user?.id
+        responsible_user_id: record.responsible_user?.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       };
-    
     default:
-      return null;
+      throw new Error(`Unknown import type: ${importType}`);
   }
 }
