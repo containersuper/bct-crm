@@ -53,7 +53,7 @@ serve(async (req) => {
     // Get TeamLeader connection
     console.log("Getting TeamLeader connection...");
     const connectionResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/teamleader_connections?user_id=eq.${user.id}&is_active=eq.true&select=access_token`, 
+      `${SUPABASE_URL}/rest/v1/teamleader_connections?user_id=eq.${user.id}&is_active=eq.true&select=access_token,refresh_token,token_expires_at`, 
       {
         headers: {
           'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -71,8 +71,61 @@ serve(async (req) => {
       throw new Error('No active TeamLeader connection found');
     }
 
-    const accessToken = connections[0].access_token;
-    console.log("TeamLeader connection found");
+    const connection = connections[0];
+    let accessToken = connection.access_token;
+    
+    // Check if token is expired and refresh if needed
+    const tokenExpiresAt = new Date(connection.token_expires_at);
+    const now = new Date();
+    
+    if (tokenExpiresAt <= now) {
+      console.log("Access token expired, refreshing...");
+      
+      // Refresh the token
+      const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: connection.refresh_token,
+          client_id: Deno.env.get('TEAMLEADER_CLIENT_ID') || '',
+          client_secret: Deno.env.get('TEAMLEADER_CLIENT_SECRET') || '',
+        }),
+      });
+      
+      if (!refreshResponse.ok) {
+        throw new Error('Failed to refresh TeamLeader token');
+      }
+      
+      const tokenData = await refreshResponse.json();
+      accessToken = tokenData.access_token;
+      
+      // Update the connection with new token
+      const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/teamleader_connections?id=eq.${connection.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'apikey': SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          access_token: tokenData.access_token,
+          refresh_token: tokenData.refresh_token || connection.refresh_token,
+          token_expires_at: new Date(Date.now() + (tokenData.expires_in * 1000)).toISOString(),
+          updated_at: new Date().toISOString()
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        console.warn('Failed to update token in database, but continuing with fresh token');
+      }
+      
+      console.log("Token refreshed successfully");
+    }
+    
+    console.log("TeamLeader connection ready");
 
     // Call TeamLeader API
     console.log(`Fetching ${importType} from TeamLeader...`);
