@@ -83,6 +83,11 @@ export function TeamLeaderConnection() {
 
       setConnection(null);
       toast.success('Disconnected from TeamLeader');
+      
+      // Automatically check connection status after disconnect
+      setTimeout(() => {
+        checkConnection();
+      }, 500);
     } catch (error) {
       console.error('Disconnect error:', error);
       toast.error('Failed to disconnect');
