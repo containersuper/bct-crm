@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarIcon, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { CalendarIcon, Download, TrendingUp, TrendingDown, Minus, RefreshCw, Loader2 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { DateRange } from "react-day-picker";
+import { useTeamLeaderData } from "@/hooks/useTeamLeaderData";
 import {
   PieChart,
   Pie,
@@ -28,60 +29,15 @@ import {
   AreaChart
 } from "recharts";
 
-// Mock data for the dashboard
-const mockData = {
-  revenueByBrand: [
-    { name: "Brand 1", value: 342000, color: "#8884d8" },
-    { name: "Brand 2", value: 289000, color: "#82ca9d" },
-    { name: "Brand 3", value: 198000, color: "#ffc658" },
-    { name: "Brand 4", value: 156000, color: "#ff7c7c" }
-  ],
-  monthlyTrends: [
-    { month: "Jan", brand1: 28000, brand2: 24000, brand3: 18000, brand4: 12000, quotes: 156 },
-    { month: "Feb", brand1: 32000, brand2: 26000, brand3: 20000, brand4: 14000, quotes: 178 },
-    { month: "Mar", brand1: 29000, brand2: 28000, brand3: 22000, brand4: 16000, quotes: 189 },
-    { month: "Apr", brand1: 35000, brand2: 30000, brand3: 19000, brand4: 18000, quotes: 201 },
-    { month: "May", brand1: 38000, brand2: 32000, brand3: 24000, brand4: 19000, quotes: 223 },
-    { month: "Jun", brand1: 42000, brand2: 35000, brand3: 26000, brand4: 21000, quotes: 245 }
-  ],
-  conversionRates: [
-    { brand: "Brand 1", rate: 68, quotes: 145, conversions: 98 },
-    { brand: "Brand 2", rate: 72, quotes: 132, conversions: 95 },
-    { brand: "Brand 3", rate: 59, quotes: 118, conversions: 70 },
-    { brand: "Brand 4", rate: 45, quotes: 89, conversions: 40 }
-  ],
-  topCustomers: [
-    { name: "Global Shipping Co.", revenue: 125000, brand: "Brand 1", orders: 45 },
-    { name: "Maritime Solutions", revenue: 98000, brand: "Brand 2", orders: 38 },
-    { name: "Ocean Freight Ltd", revenue: 87000, brand: "Brand 1", orders: 32 },
-    { name: "Container Express", revenue: 76000, brand: "Brand 3", orders: 28 },
-    { name: "Port Authority Inc", revenue: 65000, brand: "Brand 2", orders: 24 }
-  ],
-  containerTypes: [
-    { name: "20ft Standard", value: 245, percentage: 35 },
-    { name: "40ft Standard", value: 189, percentage: 27 },
-    { name: "40ft High Cube", value: 156, percentage: 22 },
-    { name: "20ft Refrigerated", value: 78, percentage: 11 },
-    { name: "40ft Refrigerated", value: 32, percentage: 5 }
-  ],
-  popularRoutes: [
-    { route: "Hamburg - Rotterdam", volume: 156, revenue: 285000 },
-    { route: "Hamburg - Antwerp", volume: 134, revenue: 245000 },
-    { route: "Bremen - Southampton", volume: 98, revenue: 189000 },
-    { route: "Bremerhaven - Felixstowe", volume: 87, revenue: 165000 },
-    { route: "Hamburg - Le Havre", volume: 76, revenue: 142000 },
-    { route: "Rotterdam - Hamburg", volume: 65, revenue: 118000 }
-  ]
-};
-
 export function AnalyticsDashboard() {
+  const { data: teamLeaderData, loading, error, refetch } = useTeamLeaderData();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date())
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
 
-  const brands = ["all", "Brand 1", "Brand 2", "Brand 3", "Brand 4"];
+  const brands = ["all", "ACM", "BCT", "HR", "Contiflex", "Other"];
 
   const exportToCSV = (data: any[], filename: string) => {
     const csvContent = [
@@ -98,17 +54,40 @@ export function AnalyticsDashboard() {
     window.URL.revokeObjectURL(url);
   };
 
-  const filteredData = useMemo(() => {
-    if (selectedBrand === "all") return mockData;
-    
-    // Filter data by selected brand
+  const chartData = useMemo(() => {
+    if (!teamLeaderData) return null;
+
+    // Prepare revenue by brand data
+    const revenueByBrand = Object.entries(teamLeaderData.brands)
+      .filter(([brand, data]) => selectedBrand === "all" || brand === selectedBrand)
+      .map(([brand, data], index) => ({
+        name: brand,
+        value: data.totalValue,
+        color: ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1'][index % 5]
+      }));
+
+    // Prepare conversion rates (simplified)
+    const conversionRates = Object.entries(teamLeaderData.brands)
+      .filter(([brand]) => selectedBrand === "all" || brand === selectedBrand)
+      .map(([brand, data]) => ({
+        brand,
+        rate: data.quotes > 0 ? Math.round((data.deals / data.quotes) * 100) : 0,
+        quotes: data.quotes,
+        deals: data.deals
+      }));
+
     return {
-      ...mockData,
-      revenueByBrand: mockData.revenueByBrand.filter(item => item.name === selectedBrand),
-      conversionRates: mockData.conversionRates.filter(item => item.brand === selectedBrand),
-      topCustomers: mockData.topCustomers.filter(item => item.brand === selectedBrand)
+      revenueByBrand,
+      conversionRates,
+      monthlyTrends: teamLeaderData.monthlyTrends,
+      containerTypes: teamLeaderData.containerTypes,
+      regions: Object.entries(teamLeaderData.regions).map(([region, data]) => ({
+        region,
+        deals: data.deals,
+        value: data.totalValue
+      }))
     };
-  }, [selectedBrand]);
+  }, [teamLeaderData, selectedBrand]);
 
   const getTrendIcon = (current: number, previous: number) => {
     if (current > previous) return <TrendingUp className="h-4 w-4 text-green-500" />;
@@ -123,13 +102,42 @@ export function AnalyticsDashboard() {
     return <Badge variant="destructive">Poor</Badge>;
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading TeamLeader data...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 text-red-500">
+        <span>Error loading data: {error}</span>
+        <Button onClick={refetch} variant="outline" className="ml-2">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!teamLeaderData || !chartData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <span>No data available</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
         <div>
-          <h2 className="text-2xl font-bold">Multi-Brand Analytics</h2>
-          <p className="text-muted-foreground">Comprehensive business performance overview</p>
+          <h2 className="text-2xl font-bold">TeamLeader Analytics Dashboard</h2>
+          <p className="text-muted-foreground">Real-time container logistics performance across brands and regions</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-2">
@@ -177,7 +185,12 @@ export function AnalyticsDashboard() {
             </PopoverContent>
           </Popover>
 
-          <Button onClick={() => exportToCSV(mockData.revenueByBrand, "analytics-data")}>
+          <Button onClick={refetch} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          
+          <Button onClick={() => exportToCSV(chartData.revenueByBrand, "teamleader-analytics")}>
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
@@ -185,48 +198,59 @@ export function AnalyticsDashboard() {
       </div>
 
       {/* KPI Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            {getTrendIcon(985000, 942000)}
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">€985,000</div>
-            <p className="text-xs text-muted-foreground">+4.6% from last month</p>
+            <div className="text-2xl font-bold">€{teamLeaderData.totals.totalRevenue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">From {teamLeaderData.totals.deals} deals</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Quotes</CardTitle>
-            {getTrendIcon(245, 223)}
+            <CardTitle className="text-sm font-medium">Angebote (Quotes)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">245</div>
-            <p className="text-xs text-muted-foreground">+9.9% from last month</p>
+            <div className="text-2xl font-bold">{teamLeaderData.totals.quotes}</div>
+            <p className="text-xs text-muted-foreground">Active quotes</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Conversion</CardTitle>
-            {getTrendIcon(61, 58)}
+            <CardTitle className="text-sm font-medium">Aufträge (Deals)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">61%</div>
-            <p className="text-xs text-muted-foreground">+5.2% from last month</p>
+            <div className="text-2xl font-bold">{teamLeaderData.totals.deals}</div>
+            <p className="text-xs text-muted-foreground">Total deals</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Rechnungen (Invoices)</CardTitle>
+            <TrendingUp className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{teamLeaderData.totals.invoices}</div>
+            <p className="text-xs text-muted-foreground">Total invoices</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
-            {getTrendIcon(148, 142)}
+            <TrendingUp className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">148</div>
-            <p className="text-xs text-muted-foreground">+4.2% from last month</p>
+            <div className="text-2xl font-bold">{teamLeaderData.totals.customers}</div>
+            <p className="text-xs text-muted-foreground">Total customers</p>
           </CardContent>
         </Card>
       </div>
@@ -243,7 +267,7 @@ export function AnalyticsDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={filteredData.revenueByBrand}
+                    data={chartData.revenueByBrand}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -252,7 +276,7 @@ export function AnalyticsDashboard() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {filteredData.revenueByBrand.map((entry, index) => (
+                    {chartData.revenueByBrand.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -263,44 +287,50 @@ export function AnalyticsDashboard() {
           </CardContent>
         </Card>
 
-        {/* Monthly Trends */}
+        {/* Regional Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Quote & Revenue Trends</CardTitle>
+            <CardTitle>Regionale Verteilung (Regional Distribution)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={mockData.monthlyTrends}>
+                <BarChart data={chartData.regions}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Area yAxisId="left" type="monotone" dataKey="brand1" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                  <Area yAxisId="left" type="monotone" dataKey="brand2" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                  <Area yAxisId="left" type="monotone" dataKey="brand3" stackId="1" stroke="#ffc658" fill="#ffc658" />
-                  <Area yAxisId="left" type="monotone" dataKey="brand4" stackId="1" stroke="#ff7c7c" fill="#ff7c7c" />
-                  <Line yAxisId="right" type="monotone" dataKey="quotes" stroke="#ff7300" strokeWidth={3} />
-                </ComposedChart>
+                  <XAxis dataKey="region" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      name === "deals" ? `${value} deals` : `€${Number(value).toLocaleString()}`,
+                      name === "deals" ? "Deals" : "Value"
+                    ]}
+                  />
+                  <Bar dataKey="deals" fill="#8884d8" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="#82ca9d" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Conversion Rates */}
+        {/* Brand Performance */}
         <Card>
           <CardHeader>
-            <CardTitle>Conversion Rates by Brand</CardTitle>
+            <CardTitle>Brand Performance Comparison</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredData.conversionRates}>
+                <BarChart data={chartData.conversionRates}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="brand" />
                   <YAxis />
-                  <Tooltip />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      name === "rate" ? `${value}%` : value,
+                      name === "rate" ? "Conversion Rate" : "Count"
+                    ]}
+                  />
                   <Bar dataKey="rate" fill="#8884d8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -315,83 +345,95 @@ export function AnalyticsDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {mockData.containerTypes.map((type, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{type.name}</span>
-                      <span className="text-sm text-muted-foreground">{type.value} units</span>
+              {teamLeaderData.containerTypes.length > 0 ? (
+                teamLeaderData.containerTypes.map((type, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">{type.name}</span>
+                        <span className="text-sm text-muted-foreground">{type.count} units</span>
+                      </div>
+                      <div className="w-full bg-secondary rounded-full h-2">
+                        <div 
+                          className="bg-primary h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${type.percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div 
-                        className="bg-primary h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${type.percentage}%` }}
-                      />
-                    </div>
+                    <div className="ml-4 text-sm font-semibold">{type.percentage}%</div>
                   </div>
-                  <div className="ml-4 text-sm font-semibold">{type.percentage}%</div>
+                ))
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  No container type data available
                 </div>
-              ))}
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tables */}
+      {/* Brand Analysis Tables */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Customers */}
+        {/* Brand Overview */}
         <Card>
           <CardHeader>
-            <CardTitle>Top Customers by Revenue</CardTitle>
+            <CardTitle>Brand Overview</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
                   <TableHead>Brand</TableHead>
+                  <TableHead>Customers</TableHead>
+                  <TableHead>Deals</TableHead>
                   <TableHead>Revenue</TableHead>
-                  <TableHead>Orders</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.topCustomers.map((customer, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{customer.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{customer.brand}</Badge>
-                    </TableCell>
-                    <TableCell>€{customer.revenue.toLocaleString()}</TableCell>
-                    <TableCell>{customer.orders}</TableCell>
-                  </TableRow>
-                ))}
+                {Object.entries(teamLeaderData.brands)
+                  .filter(([brand]) => selectedBrand === "all" || brand === selectedBrand)
+                  .map(([brand, data]) => (
+                    <TableRow key={brand}>
+                      <TableCell className="font-medium">
+                        <Badge variant="outline">{brand}</Badge>
+                      </TableCell>
+                      <TableCell>{data.customers}</TableCell>
+                      <TableCell>{data.deals}</TableCell>
+                      <TableCell>€{data.totalValue.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
               </TableBody>
             </Table>
           </CardContent>
         </Card>
 
-        {/* Brand Performance Comparison */}
+        {/* Regional Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Brand Performance Comparison</CardTitle>
+            <CardTitle>Regional Performance</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Brand</TableHead>
-                  <TableHead>Conversion Rate</TableHead>
-                  <TableHead>Quotes</TableHead>
-                  <TableHead>Performance</TableHead>
+                  <TableHead>Region</TableHead>
+                  <TableHead>Deals</TableHead>
+                  <TableHead>Total Value</TableHead>
+                  <TableHead>Avg. Deal Size</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockData.conversionRates.map((brand, index) => (
-                  <TableRow key={index}>
-                    <TableCell className="font-medium">{brand.brand}</TableCell>
-                    <TableCell>{brand.rate}%</TableCell>
-                    <TableCell>{brand.quotes}</TableCell>
-                    <TableCell>{getConversionBadge(brand.rate)}</TableCell>
+                {Object.entries(teamLeaderData.regions).map(([region, data]) => (
+                  <TableRow key={region}>
+                    <TableCell className="font-medium">
+                      <Badge variant="outline">{region}</Badge>
+                    </TableCell>
+                    <TableCell>{data.deals}</TableCell>
+                    <TableCell>€{data.totalValue.toLocaleString()}</TableCell>
+                    <TableCell>
+                      €{data.deals > 0 ? Math.round(data.totalValue / data.deals).toLocaleString() : 0}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -400,28 +442,32 @@ export function AnalyticsDashboard() {
         </Card>
       </div>
 
-      {/* Popular Routes Heatmap */}
+      {/* Container & Logistics Insights */}
       <Card>
         <CardHeader>
-          <CardTitle>Most Popular Routes</CardTitle>
+          <CardTitle>Container & Logistics Insights</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockData.popularRoutes} layout="horizontal">
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" />
-                <YAxis dataKey="route" type="category" width={150} />
-                <Tooltip 
-                  formatter={(value, name) => [
-                    name === "volume" ? `${value} shipments` : `€${Number(value).toLocaleString()}`,
-                    name === "volume" ? "Volume" : "Revenue"
-                  ]}
-                />
-                <Bar dataKey="volume" fill="#8884d8" />
-                <Bar dataKey="revenue" fill="#82ca9d" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">
+                {teamLeaderData.containerTypes.reduce((sum, type) => sum + type.count, 0)}
+              </div>
+              <div className="text-sm text-muted-foreground">Total Containers</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {Object.keys(teamLeaderData.regions).length}
+              </div>
+              <div className="text-sm text-muted-foreground">Active Regions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                €{teamLeaderData.totals.totalRevenue > 0 ? 
+                  Math.round(teamLeaderData.totals.totalRevenue / Math.max(teamLeaderData.totals.deals, 1)).toLocaleString() : 0}
+              </div>
+              <div className="text-sm text-muted-foreground">Avg Deal Value</div>
+            </div>
           </div>
         </CardContent>
       </Card>
