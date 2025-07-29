@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
 import { Navigation } from "@/components/layout/Navigation";
 import { GmailOAuthCallback } from "@/components/email/GmailOAuthCallback";
+import { TeamLeaderAuthCallback } from "@/components/crm/TeamLeaderAuthCallback";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import EmailManagement from "./pages/EmailManagement";
@@ -70,6 +71,7 @@ const App = () => (
                 } />
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
                 <Route path="/auth/callback/gmail" element={<GmailOAuthCallback />} />
+                <Route path="/auth/callback/teamleader" element={<TeamLeaderAuthCallback />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

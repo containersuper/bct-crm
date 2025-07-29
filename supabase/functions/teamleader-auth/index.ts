@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
         const authUrl = `${TEAMLEADER_BASE_URL}/oauth2/authorize?` +
           `client_id=${clientId}&` +
           `response_type=code&` +
-          `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/crm')}`;
+          `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/teamleader')}`;
         
         response = { authUrl };
         break;
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
             client_secret: clientSecret,
             code: code,
             grant_type: 'authorization_code',
-            redirect_uri: 'https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/crm'
+            redirect_uri: 'https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/teamleader'
           })
         });
 
