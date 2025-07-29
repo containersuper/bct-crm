@@ -121,7 +121,30 @@ export function TeamLeaderConnection() {
   };
 
   const handleImport = async (type: 'contacts' | 'companies' | 'deals') => {
-    toast.info('Import feature coming after connection test works');
+    try {
+      setIsImporting(true);
+      console.log(`Starting import of ${type}...`);
+
+      const { data, error } = await supabase.functions.invoke('teamleader-import', {
+        body: { type, limit: 100 }
+      });
+
+      if (error) {
+        console.error('Import error:', error);
+        throw new Error(error.message || 'Import failed');
+      }
+
+      if (data?.success) {
+        toast.success(`Successfully imported ${data.imported} ${type}`);
+      } else {
+        throw new Error(data?.error || 'Import failed');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error(`Failed to import ${type}: ` + error.message);
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   if (loading) {
