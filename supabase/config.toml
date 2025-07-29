@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.teamleader-batch-import]
 verify_jwt = true
+
+[functions.teamleader-test]
+verify_jwt = true
