@@ -64,39 +64,62 @@ export function BatchImportManager() {
     setImporting(prev => ({ ...prev, [importType]: true }));
     
     try {
-      // Use the proven teamleader-sync function instead
+      console.log(`Starting import for ${importType}...`);
+      
+      // Use the proven teamleader-sync function with full_import action
       const { data, error } = await supabase.functions.invoke('teamleader-sync', {
         body: { 
-          action: 'import',
-          syncType: importType
+          action: 'full_import',
+          syncType: importType,
+          batchSize: 100,
+          maxPages: 1
         }
       });
 
-      if (error) throw error;
+      console.log('Response from teamleader-sync:', data, error);
 
-      if (data && typeof data === 'object' && 'processed' in data) {
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw new Error(`Function error: ${error.message || 'Unknown error'}`);
+      }
+
+      if (data && typeof data === 'object') {
         await loadProgress();
         
-        const imported = data.processed || 0;
-        const successful = data.failed !== undefined ? data.processed - data.failed : imported;
-        
-        if (successful > 0) {
-          toast.success(`${successful} ${importType} erfolgreich importiert!`);
-        }
-        
-        if (data.failed && data.failed > 0) {
-          toast.error(`${data.failed} ${importType} konnten nicht importiert werden.`);
-        }
+        if ('processed' in data) {
+          const imported = data.processed || 0;
+          const successful = data.failed !== undefined ? data.processed - data.failed : imported;
+          
+          if (successful > 0) {
+            toast.success(`${successful} ${importType} erfolgreich importiert!`);
+          }
+          
+          if (data.failed && data.failed > 0) {
+            toast.error(`${data.failed} ${importType} konnten nicht importiert werden.`);
+          }
 
-        if (imported === 0) {
-          toast.info(`Alle ${importType} sind bereits importiert.`);
+          if (imported === 0) {
+            toast.info(`Alle ${importType} sind bereits importiert.`);
+          }
+        } else if ('success' in data && data.success) {
+          toast.success(`${importType} Import erfolgreich abgeschlossen!`);
+        } else {
+          throw new Error(data.error || 'Unerwartetes Response-Format von der Sync-Function');
         }
       } else {
-        throw new Error('Unerwartetes Response-Format von der Sync-Function');
+        throw new Error('Keine Daten von der Sync-Function erhalten');
       }
     } catch (error) {
       console.error('Import error:', error);
-      toast.error(`Import Fehler: ${error.message}`);
+      const errorMessage = error.message || 'Unbekannter Fehler';
+      
+      if (errorMessage.includes('Token expired')) {
+        toast.error(`Token abgelaufen. Bitte erneuern Sie die TeamLeader-Verbindung.`);
+      } else if (errorMessage.includes('TeamLeader connection not found')) {
+        toast.error(`Keine TeamLeader-Verbindung gefunden. Bitte autorisieren Sie sich zuerst.`);
+      } else {
+        toast.error(`Import Fehler: ${errorMessage}`);
+      }
     } finally {
       setImporting(prev => ({ ...prev, [importType]: false }));
     }
