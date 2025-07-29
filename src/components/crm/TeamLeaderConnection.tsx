@@ -170,8 +170,8 @@ export function TeamLeaderConnection() {
       for (const type of types) {
         try {
           console.log(`Importing ${type}...`);
-          const { data, error } = await supabase.functions.invoke('teamleader-import', {
-            body: { type, limit: 1000 }
+          const { data, error } = await supabase.functions.invoke('teamleader-batch-import', {
+            body: { importType: type, batchSize: 100 }
           });
 
           if (data?.success) {
