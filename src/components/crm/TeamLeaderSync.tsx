@@ -210,6 +210,7 @@ export function TeamLeaderSync() {
   const handleAuthorization = async () => {
     try {
       console.log('Starting TeamLeader authorization...');
+      setLoading(true);
       
       const { data, error } = await supabase.functions.invoke('teamleader-auth', {
         body: { action: 'authorize' }
@@ -222,11 +223,21 @@ export function TeamLeaderSync() {
 
       console.log('Authorization URL received:', data.authUrl);
       
-      // Open authorization URL in current window instead of popup
-      window.location.href = data.authUrl;
-      toast.info('Redirecting to TeamLeader for authorization...');
+      // Ensure we have a valid authorization URL before redirecting
+      if (data.authUrl && data.authUrl.includes('teamleader.eu')) {
+        console.log('Redirecting to TeamLeader authorization...');
+        // Show a toast before redirecting
+        toast.info('Redirecting to TeamLeader for authorization...');
+        // Small delay to let the toast show
+        setTimeout(() => {
+          window.location.href = data.authUrl;
+        }, 1000);
+      } else {
+        throw new Error('Invalid authorization URL received');
+      }
     } catch (error) {
       console.error('Authorization error:', error);
+      setLoading(false);
       toast.error('Failed to start authorization: ' + (error.message || 'Unknown error'));
     }
   };
