@@ -68,26 +68,31 @@ export function BatchImportManager() {
       const { data, error } = await supabase.functions.invoke('teamleader-sync', {
         body: { 
           action: 'import',
-          syncType: importType,
-          batchSize: 100
+          syncType: importType
         }
       });
 
       if (error) throw error;
 
-      if (data.success) {
+      if (data && typeof data === 'object' && 'processed' in data) {
         await loadProgress();
         
-        const imported = data.recordsSuccess || data.records_success || 0;
-        const hasMore = data.hasMore || false;
+        const imported = data.processed || 0;
+        const successful = data.failed !== undefined ? data.processed - data.failed : imported;
         
-        if (hasMore) {
-          toast.success(`${imported} ${importType} importiert! Klicken Sie "Weiter importieren" für mehr.`);
-        } else {
-          toast.success(`Import abgeschlossen! ${imported} ${importType} importiert.`);
+        if (successful > 0) {
+          toast.success(`${successful} ${importType} erfolgreich importiert!`);
+        }
+        
+        if (data.failed && data.failed > 0) {
+          toast.error(`${data.failed} ${importType} konnten nicht importiert werden.`);
+        }
+
+        if (imported === 0) {
+          toast.info(`Alle ${importType} sind bereits importiert.`);
         }
       } else {
-        throw new Error(data.error || 'Import failed');
+        throw new Error('Unerwartetes Response-Format von der Sync-Function');
       }
     } catch (error) {
       console.error('Import error:', error);
