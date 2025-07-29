@@ -17,6 +17,7 @@ export function TeamLeaderConnection() {
   const [connection, setConnection] = useState<TeamLeaderConnection | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importingType, setImportingType] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -120,31 +121,39 @@ export function TeamLeaderConnection() {
     }
   };
 
-  const handleImport = async (type: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects') => {
+  const handleImportAll = async (type: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects') => {
     try {
       setIsImporting(true);
-      console.log(`Starting import of ${type}...`);
-      toast.info(`Importing ${type}...`);
+      setImportingType(type);
+      console.log(`Starting batch import of all ${type}...`);
+      toast.info(`Importing ALL ${type}. This will continue until all records are imported...`);
 
-      const { data, error } = await supabase.functions.invoke('teamleader-import', {
-        body: { type, limit: 100 }
+      const { data, error } = await supabase.functions.invoke('teamleader-batch-import', {
+        body: { type, batchSize: 100 }
       });
 
       if (error) {
         console.error('Import error:', error);
-        throw new Error(error.message || 'Import failed');
+        throw new Error(error.message || 'Failed to import data');
       }
 
       if (data?.success) {
-        toast.success(`Successfully imported ${data.imported} ${type}`);
+        const message = data.errors && data.errors.length > 0 
+          ? `Imported ${data.imported} ${type} from ${data.pages} pages (with ${data.errors.length} errors)`
+          : `✅ Complete! Imported ${data.imported} ${type} from ${data.pages} pages`;
+        toast.success(message);
       } else {
         throw new Error(data?.error || 'Import failed');
       }
-    } catch (error) {
-      console.error('Import error:', error);
-      toast.error(`Failed to import ${type}: ` + error.message);
+
+      // Refresh connection status after successful import
+      checkConnection();
+    } catch (error: any) {
+      console.error(`Error importing ${type}:`, error);
+      toast.error(`Failed to import ${type}: ${error.message}`);
     } finally {
       setIsImporting(false);
+      setImportingType(null);
     }
   };
 
@@ -197,61 +206,62 @@ export function TeamLeaderConnection() {
             </div>
             
             <div className="space-y-2">
-              <h4 className="font-medium">Import Data</h4>
+              <h4 className="font-medium">Import All Data</h4>
+              <p className="text-xs text-muted-foreground">Each button will import ALL records of that type automatically</p>
               <div className="grid grid-cols-2 gap-2">
                 <Button 
-                  onClick={() => handleImport('contacts')}
+                  onClick={() => handleImportAll('contacts')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'contacts' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Contacts
+                  {importingType === 'contacts' ? 'Importing...' : 'All Contacts'}
                 </Button>
                 <Button 
-                  onClick={() => handleImport('companies')}
+                  onClick={() => handleImportAll('companies')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'companies' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Companies
+                  {importingType === 'companies' ? 'Importing...' : 'All Companies'}
                 </Button>
                 <Button 
-                  onClick={() => handleImport('deals')}
+                  onClick={() => handleImportAll('deals')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'deals' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Deals
+                  {importingType === 'deals' ? 'Importing...' : 'All Deals'}
                 </Button>
                 <Button 
-                  onClick={() => handleImport('invoices')}
+                  onClick={() => handleImportAll('invoices')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'invoices' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Invoices
+                  {importingType === 'invoices' ? 'Importing...' : 'All Invoices'}
                 </Button>
                 <Button 
-                  onClick={() => handleImport('quotes')}
+                  onClick={() => handleImportAll('quotes')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'quotes' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Quotes
+                  {importingType === 'quotes' ? 'Importing...' : 'All Quotes'}
                 </Button>
                 <Button 
-                  onClick={() => handleImport('projects')}
+                  onClick={() => handleImportAll('projects')}
                   disabled={isImporting}
                   size="sm"
-                  variant="outline"
+                  variant={importingType === 'projects' ? 'secondary' : 'outline'}
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Projects
+                  {importingType === 'projects' ? 'Importing...' : 'All Projects'}
                 </Button>
               </div>
             </div>
