@@ -77,6 +77,28 @@ export function TeamLeaderPDFManager({ type, title }: PDFManagerProps) {
     }
   };
 
+  const testPDFDownload = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('teamleader-test-pdf');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Test Successful",
+        description: data.message || "PDF download test completed",
+      });
+      
+      console.log('Test results:', data);
+    } catch (error: any) {
+      console.error('Test error:', error);
+      toast({
+        title: "Test Failed",
+        description: error.message || "PDF download test failed",
+        variant: "destructive"
+      });
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -114,6 +136,9 @@ export function TeamLeaderPDFManager({ type, title }: PDFManagerProps) {
         <div className="flex gap-2 mb-4">
           <Button onClick={fetchStats} variant="outline" size="sm">
             Refresh Stats
+          </Button>
+          <Button onClick={testPDFDownload} variant="outline" size="sm">
+            Test PDF API
           </Button>
           <Button 
             onClick={downloadPDFs} 

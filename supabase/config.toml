@@ -41,3 +41,9 @@ verify_jwt = true
 
 [functions.teamleader-batch-full]
 verify_jwt = true
+
+[functions.teamleader-pdf-downloader]
+verify_jwt = true
+
+[functions.teamleader-test-pdf]
+verify_jwt = true
