@@ -64,9 +64,11 @@ export function BatchImportManager() {
     setImporting(prev => ({ ...prev, [importType]: true }));
     
     try {
-      const { data, error } = await supabase.functions.invoke('teamleader-batch-import', {
+      // Use the proven teamleader-sync function instead
+      const { data, error } = await supabase.functions.invoke('teamleader-sync', {
         body: { 
-          importType,
+          action: 'import',
+          syncType: importType,
           batchSize: 100
         }
       });
@@ -76,10 +78,13 @@ export function BatchImportManager() {
       if (data.success) {
         await loadProgress();
         
-        if (data.hasMore) {
-          toast.success(`${data.imported} ${importType} importiert! Klicken Sie "Weiter importieren" für mehr.`);
+        const imported = data.recordsSuccess || data.records_success || 0;
+        const hasMore = data.hasMore || false;
+        
+        if (hasMore) {
+          toast.success(`${imported} ${importType} importiert! Klicken Sie "Weiter importieren" für mehr.`);
         } else {
-          toast.success(`Import abgeschlossen! ${data.imported} ${importType} importiert.`);
+          toast.success(`Import abgeschlossen! ${imported} ${importType} importiert.`);
         }
       } else {
         throw new Error(data.error || 'Import failed');
