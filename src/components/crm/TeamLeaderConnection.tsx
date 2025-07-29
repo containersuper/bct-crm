@@ -123,10 +123,11 @@ export function TeamLeaderConnection() {
   const handleImport = async (type: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects') => {
     try {
       setIsImporting(true);
-      console.log(`Starting import of ${type}...`);
+      console.log(`Starting FULL import of ${type}...`);
+      toast.info(`Starting batch import of all ${type}. This may take a few minutes...`);
 
-      const { data, error } = await supabase.functions.invoke('teamleader-import', {
-        body: { type, limit: 100 }
+      const { data, error } = await supabase.functions.invoke('teamleader-batch-full', {
+        body: { type, batchSize: 100 }
       });
 
       if (error) {
@@ -135,7 +136,7 @@ export function TeamLeaderConnection() {
       }
 
       if (data?.success) {
-        toast.success(`Successfully imported ${data.imported} ${type}`);
+        toast.success(`✅ Complete! Imported ${data.imported} ${type} in ${data.batches} batches`);
       } else {
         throw new Error(data?.error || 'Import failed');
       }
