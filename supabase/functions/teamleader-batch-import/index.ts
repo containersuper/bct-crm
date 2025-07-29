@@ -11,37 +11,45 @@ interface BatchImportRequest {
 }
 
 Deno.serve(async (req) => {
+  console.log('=== TEAMLEADER BATCH IMPORT START ===');
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    console.log('Creating Supabase client...');
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
     // Get user from auth header
+    console.log('Getting auth header...');
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
+    console.log('Authenticating user...');
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace('Bearer ', '')
     );
 
     if (authError || !user) {
+      console.error('Auth error:', authError);
       throw new Error('Authentication failed');
     }
 
     console.log('User authenticated:', user.id);
 
+    console.log('Parsing request body...');
     const { importType, batchSize = 100 }: BatchImportRequest = await req.json();
     console.log(`Starting batch import of ${importType} with batch size ${batchSize}`);
 
     // Get active TeamLeader connection
+    console.log('Getting TeamLeader connection...');
     const { data: connection, error: connectionError } = await supabase
       .from('teamleader_connections')
       .select('*')
@@ -50,6 +58,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (connectionError || !connection) {
+      console.error('Connection error:', connectionError);
       throw new Error('No active TeamLeader connection found');
     }
 
@@ -93,8 +102,10 @@ Deno.serve(async (req) => {
     }
 
     // Get TeamLeader endpoint and Supabase table
+    console.log('Getting endpoint and table...');
     const endpoint = getTeamLeaderEndpoint(importType);
     const table = getSupabaseTable(importType);
+    console.log(`Endpoint: ${endpoint}, Table: ${table}`);
 
     let totalImported = 0;
     let page = 1;
@@ -107,20 +118,20 @@ Deno.serve(async (req) => {
       console.log(`Importing page ${page} of ${importType}...`);
 
       // Fetch data from TeamLeader
-      const teamleaderResponse = await fetch(
-        `https://api.teamleader.eu/${endpoint}?page[size]=${batchSize}&page[number]=${page}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Accept': 'application/json',
-          },
-        }
-      );
+      const teamleaderUrl = `https://api.teamleader.eu/${endpoint}?page[size]=${batchSize}&page[number]=${page}`;
+      console.log(`Fetching from: ${teamleaderUrl}`);
+      
+      const teamleaderResponse = await fetch(teamleaderUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
 
       if (!teamleaderResponse.ok) {
         const errorText = await teamleaderResponse.text();
         console.error(`TeamLeader API error: ${teamleaderResponse.status} - ${errorText}`);
-        throw new Error(`TeamLeader API error: ${teamleaderResponse.status}`);
+        throw new Error(`TeamLeader API error: ${teamleaderResponse.status} - ${errorText}`);
       }
 
       const teamleaderData = await teamleaderResponse.json();
@@ -191,11 +202,17 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Batch import error:', error);
+    console.error('=== BATCH IMPORT ERROR ===');
+    console.error('Error details:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
+        timestamp: new Date().toISOString(),
+        details: error.stack
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
