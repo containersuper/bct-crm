@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
         const tokenData = await refreshResponse.json()
         accessToken = tokenData.access_token
         
-        await supabase
+        const { error: updateError } = await supabase
           .from('teamleader_connections')
           .update({
             access_token: tokenData.access_token,
@@ -85,6 +85,19 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString()
           })
           .eq('id', connection.id)
+          
+        if (updateError) {
+          console.error('Failed to update token:', updateError)
+        } else {
+          console.log('Token refreshed successfully')
+        }
+      } else {
+        const errorText = await refreshResponse.text()
+        console.error('Token refresh failed:', refreshResponse.status, errorText)
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh TeamLeader token' }),
+          { status: 401, headers: corsHeaders }
+        )
       }
     }
 

@@ -50,11 +50,56 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Check if token needs refresh and refresh if needed
+    let accessToken = connection.access_token
+    if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
+      console.log('Token expired, refreshing...')
+      
+      const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          'client_id': Deno.env.get('TEAMLEADER_CLIENT_ID')!,
+          'client_secret': Deno.env.get('TEAMLEADER_CLIENT_SECRET')!,
+          'refresh_token': connection.refresh_token!,
+          'grant_type': 'refresh_token'
+        })
+      })
+
+      if (refreshResponse.ok) {
+        const tokenData = await refreshResponse.json()
+        accessToken = tokenData.access_token
+        
+        const { error: updateError } = await supabase
+          .from('teamleader_connections')
+          .update({
+            access_token: tokenData.access_token,
+            refresh_token: tokenData.refresh_token,
+            token_expires_at: new Date(Date.now() + tokenData.expires_in * 1000).toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', connection.id)
+          
+        if (updateError) {
+          console.error('Failed to update token:', updateError)
+        } else {
+          console.log('Token refreshed successfully')
+        }
+      } else {
+        const errorText = await refreshResponse.text()
+        console.error('Token refresh failed:', refreshResponse.status, errorText)
+        return new Response(
+          JSON.stringify({ error: 'Failed to refresh TeamLeader token' }),
+          { status: 401, headers: corsHeaders }
+        )
+      }
+    }
+
     // Test API call to get a single invoice
     const testResponse = await fetch('https://api.teamleader.eu/invoices.list', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${connection.access_token}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -85,7 +130,7 @@ Deno.serve(async (req) => {
       const pdfResponse = await fetch('https://api.teamleader.eu/invoices.download', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${connection.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
