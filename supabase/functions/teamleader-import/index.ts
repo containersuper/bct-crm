@@ -52,8 +52,61 @@ Deno.serve(async (req) => {
       throw new Error('No active TeamLeader connection found');
     }
 
-    const connection = connections[0];
+    let connection = connections[0];
     console.log('Found TeamLeader connection');
+
+    // Check if token is expired
+    const now = new Date();
+    const expiresAt = new Date(connection.token_expires_at);
+    
+    if (now >= expiresAt) {
+      console.log('Token expired, refreshing...');
+      
+      // Refresh the token
+      const refreshResponse = await fetch('https://app.teamleader.eu/oauth2/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: Deno.env.get('TEAMLEADER_CLIENT_ID'),
+          client_secret: Deno.env.get('TEAMLEADER_CLIENT_SECRET'),
+          refresh_token: connection.refresh_token,
+          grant_type: 'refresh_token'
+        })
+      });
+
+      if (!refreshResponse.ok) {
+        const errorText = await refreshResponse.text();
+        console.error('Token refresh failed:', errorText);
+        throw new Error('Token refresh failed. Please reconnect to TeamLeader.');
+      }
+
+      const refreshData = await refreshResponse.json();
+      const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000);
+
+      // Update the connection with new tokens
+      const { error: updateError } = await supabase
+        .from('teamleader_connections')
+        .update({
+          access_token: refreshData.access_token,
+          refresh_token: refreshData.refresh_token,
+          token_expires_at: newExpiresAt.toISOString(),
+        })
+        .eq('id', connection.id);
+
+      if (updateError) {
+        console.error('Failed to update tokens:', updateError);
+        throw new Error('Failed to update tokens');
+      }
+
+      // Update local connection object
+      connection.access_token = refreshData.access_token;
+      connection.refresh_token = refreshData.refresh_token;
+      connection.token_expires_at = newExpiresAt.toISOString();
+      
+      console.log('Token refreshed successfully');
+    }
 
     const { type, limit = 50 }: ImportRequest = await req.json();
     console.log(`Importing ${type} (limit: ${limit})`);
