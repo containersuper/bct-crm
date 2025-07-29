@@ -65,18 +65,52 @@ export interface TeamLeaderAnalytics {
   }>;
 }
 
-function detectBrand(company: string = '', email: string = ''): string {
+function detectBrand(company: string = '', email: string = '', dealTitle: string = '', invoiceNumber: string = '', quoteNumber: string = ''): string {
   const companyLower = company.toLowerCase();
   const emailLower = email.toLowerCase();
-
-  // Check email domains first (most reliable)
+  const titleLower = dealTitle.toLowerCase();
+  
+  // NEW: Check for container grade patterns in deal titles (ACM uses different grades)
+  if (titleLower.includes('20 ft. a') || titleLower.includes('20ft a') || titleLower.includes("20' a")) {
+    return 'ACM Grade A';
+  }
+  if (titleLower.includes('20 ft. b') || titleLower.includes('20ft b') || titleLower.includes("20' b")) {
+    return 'ACM Grade B';
+  }
+  if (titleLower.includes('20 ft. c') || titleLower.includes('20ft c') || titleLower.includes("20' c")) {
+    return 'ACM Grade C';
+  }
+  
+  // Check for different invoice/quote number patterns
+  if (invoiceNumber) {
+    // Different year formats might indicate different brands
+    if (invoiceNumber.includes('2022 /')) {
+      return 'ACM Container';
+    }
+    if (invoiceNumber.includes('HR-') || invoiceNumber.includes('HR/')) {
+      return 'HR Containerhandel';
+    }
+    if (invoiceNumber.includes('BCT-') || invoiceNumber.includes('BCT/')) {
+      return 'BCT';
+    }
+  }
+  
+  // Check for specific container types that might indicate different brands
+  if (titleLower.includes('10 ft') || titleLower.includes("10'")) {
+    return 'ACM Specialty';
+  }
+  if (titleLower.includes('40 ft') || titleLower.includes("40'")) {
+    return 'ACM Large';
+  }
+  
+  // Check email domains (original logic)
   for (const [brand, patterns] of Object.entries(BRAND_PATTERNS)) {
     if (patterns.emailDomains.some(domain => emailLower.includes(domain))) {
       return brand;
     }
   }
 
-  // Check company name patterns
+  // Check company name patterns (original logic)
   for (const [brand, patterns] of Object.entries(BRAND_PATTERNS)) {
     if (patterns.companyPatterns.some(pattern => 
       companyLower.includes(pattern.toLowerCase())
@@ -85,7 +119,12 @@ function detectBrand(company: string = '', email: string = ''): string {
     }
   }
 
-  return 'Other';
+  // Default brand based on container pattern
+  if (titleLower.includes('angebot') || titleLower.includes('anfrage')) {
+    return 'ACM Container';
+  }
+
+  return 'ACM Container'; // Default to ACM since all data comes from one company
 }
 
 function extractRegion(title: string = ''): string | null {
@@ -165,8 +204,14 @@ export function useTeamLeaderData() {
       const regionAnalysis: { [key: string]: any } = {};
       const containerTypes: { [key: string]: number } = {};
 
-      // Initialize brand categories
-      ['ACM', 'BCT', 'HR', 'Contiflex', 'Other'].forEach(brand => {
+      // Initialize brand categories - updated with new categories
+      const brandCategories = [
+        'ACM Grade A', 'ACM Grade B', 'ACM Grade C', 
+        'ACM Container', 'ACM Specialty', 'ACM Large',
+        'BCT', 'HR', 'Contiflex', 'Other'
+      ];
+      
+      brandCategories.forEach(brand => {
         brandAnalysis[brand] = {
           customers: 0,
           deals: 0,
@@ -185,9 +230,14 @@ export function useTeamLeaderData() {
       // Analyze deals
       deals.forEach(deal => {
         const customerBrand = customers.find(c => c.id === deal.customer_id);
-        const brand = customerBrand ? 
-          detectBrand(customerBrand.company || customerBrand.name || '', customerBrand.email || '') : 
-          'Other';
+        // Use deal title and other info for better brand detection
+        const brand = detectBrand(
+          customerBrand?.company || customerBrand?.name || '', 
+          customerBrand?.email || '', 
+          deal.title || deal.description || '',
+          '', // no invoice number for deals
+          ''  // no quote number for deals
+        );
         
         brandAnalysis[brand].deals++;
         brandAnalysis[brand].totalValue += Number(deal.value || 0);
@@ -212,9 +262,13 @@ export function useTeamLeaderData() {
       // Analyze quotes
       quotes.forEach(quote => {
         const customerBrand = customers.find(c => c.id === quote.customer_id);
-        const brand = customerBrand ? 
-          detectBrand(customerBrand.company || customerBrand.name || '', customerBrand.email || '') : 
-          'Other';
+        const brand = detectBrand(
+          customerBrand?.company || customerBrand?.name || '', 
+          customerBrand?.email || '', 
+          quote.title || quote.description || '',
+          '', // no invoice number for quotes
+          quote.quote_number || ''
+        );
         
         brandAnalysis[brand].quotes++;
       });
@@ -222,9 +276,13 @@ export function useTeamLeaderData() {
       // Analyze invoices
       invoices.forEach(invoice => {
         const customerBrand = customers.find(c => c.id === invoice.customer_id);
-        const brand = customerBrand ? 
-          detectBrand(customerBrand.company || customerBrand.name || '', customerBrand.email || '') : 
-          'Other';
+        const brand = detectBrand(
+          customerBrand?.company || customerBrand?.name || '', 
+          customerBrand?.email || '', 
+          invoice.title || invoice.description || '',
+          invoice.invoice_number || '',
+          '' // no quote number for invoices
+        );
         
         brandAnalysis[brand].invoices++;
       });
