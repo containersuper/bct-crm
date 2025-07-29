@@ -129,7 +129,7 @@ export function TeamLeaderConnection() {
       toast.info(`Importing ALL ${type}. This will continue until all records are imported...`);
 
       const { data, error } = await supabase.functions.invoke('teamleader-batch-import', {
-        body: { type, batchSize: 100 }
+        body: { importType: type, batchSize: 100 }
       });
 
       if (error) {

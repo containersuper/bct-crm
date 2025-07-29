@@ -91,7 +91,7 @@ serve(async (req) => {
       console.log(`Refreshing token with client ID: ${clientId.substring(0, 8)}...`);
       
       // Refresh the token
-      const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
+      const refreshResponse = await fetch('https://app.teamleader.eu/oauth2/access_token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
