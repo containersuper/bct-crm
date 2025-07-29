@@ -120,7 +120,7 @@ export function TeamLeaderConnection() {
     }
   };
 
-  const handleImport = async (type: 'contacts' | 'companies' | 'deals') => {
+  const handleImport = async (type: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects') => {
     try {
       setIsImporting(true);
       console.log(`Starting import of ${type}...`);
@@ -197,7 +197,7 @@ export function TeamLeaderConnection() {
             
             <div className="space-y-2">
               <h4 className="font-medium">Import Data</h4>
-              <div className="flex gap-2 flex-wrap">
+              <div className="grid grid-cols-2 gap-2">
                 <Button 
                   onClick={() => handleImport('contacts')}
                   disabled={isImporting}
@@ -205,7 +205,7 @@ export function TeamLeaderConnection() {
                   variant="outline"
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Import Contacts
+                  Contacts
                 </Button>
                 <Button 
                   onClick={() => handleImport('companies')}
@@ -214,7 +214,7 @@ export function TeamLeaderConnection() {
                   variant="outline"
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Import Companies
+                  Companies
                 </Button>
                 <Button 
                   onClick={() => handleImport('deals')}
@@ -223,7 +223,34 @@ export function TeamLeaderConnection() {
                   variant="outline"
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  Import Deals
+                  Deals
+                </Button>
+                <Button 
+                  onClick={() => handleImport('invoices')}
+                  disabled={isImporting}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Invoices
+                </Button>
+                <Button 
+                  onClick={() => handleImport('quotes')}
+                  disabled={isImporting}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Quotes
+                </Button>
+                <Button 
+                  onClick={() => handleImport('projects')}
+                  disabled={isImporting}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  Projects
                 </Button>
               </div>
             </div>

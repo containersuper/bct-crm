@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 interface ImportRequest {
-  type: 'contacts' | 'companies' | 'deals';
+  type: 'contacts' | 'companies' | 'deals' | 'invoices' | 'quotes' | 'projects';
   limit?: number;
 }
 
@@ -113,15 +113,32 @@ Deno.serve(async (req) => {
 
     // Make API call to TeamLeader
     let endpoint = '';
+    let tableName = '';
+    
     switch (type) {
       case 'contacts':
         endpoint = '/contacts.list';
+        tableName = 'customers';
         break;
       case 'companies':
         endpoint = '/companies.list';
+        tableName = 'customers';
         break;
       case 'deals':
         endpoint = '/deals.list';
+        tableName = 'teamleader_deals';
+        break;
+      case 'invoices':
+        endpoint = '/invoices.list';
+        tableName = 'teamleader_invoices';
+        break;
+      case 'quotes':
+        endpoint = '/quotations.list';
+        tableName = 'teamleader_quotes';
+        break;
+      case 'projects':
+        endpoint = '/projects.list';
+        tableName = 'teamleader_projects';
         break;
       default:
         throw new Error('Invalid import type');
@@ -169,6 +186,59 @@ Deno.serve(async (req) => {
               email: item.email,
               phone: item.telephone,
               company: item.name,
+            }, { onConflict: 'teamleader_id' });
+          } else if (type === 'deals') {
+            await supabase.from('teamleader_deals').upsert({
+              teamleader_id: item.id,
+              title: item.title,
+              description: item.description,
+              value: item.estimated_value?.amount || null,
+              currency: item.estimated_value?.currency || 'EUR',
+              phase: item.phase?.name,
+              probability: item.estimated_probability,
+              expected_closing_date: item.estimated_closing_date,
+              contact_id: item.contact?.id,
+              company_id: item.company?.id,
+            }, { onConflict: 'teamleader_id' });
+          } else if (type === 'invoices') {
+            await supabase.from('teamleader_invoices').upsert({
+              teamleader_id: item.id,
+              invoice_number: item.invoice_number,
+              title: item.title,
+              description: item.description,
+              total_price: item.total?.amount || null,
+              currency: item.total?.currency || 'EUR',
+              status: item.status,
+              invoice_date: item.invoice_date,
+              due_date: item.due_date,
+              contact_id: item.contact?.id,
+              company_id: item.company?.id,
+            }, { onConflict: 'teamleader_id' });
+          } else if (type === 'quotes') {
+            await supabase.from('teamleader_quotes').upsert({
+              teamleader_id: item.id,
+              quote_number: item.quotation_number,
+              title: item.title,
+              description: item.description,
+              total_price: item.total?.amount || null,
+              currency: item.total?.currency || 'EUR',
+              status: item.status,
+              quote_date: item.quotation_date,
+              valid_until: item.valid_until,
+              contact_id: item.contact?.id,
+              company_id: item.company?.id,
+            }, { onConflict: 'teamleader_id' });
+          } else if (type === 'projects') {
+            await supabase.from('teamleader_projects').upsert({
+              teamleader_id: item.id,
+              title: item.title,
+              description: item.description,
+              status: item.status,
+              start_date: item.starts_on,
+              end_date: item.ends_on,
+              budget: item.budget?.amount || null,
+              currency: item.budget?.currency || 'EUR',
+              company_id: item.company?.id,
             }, { onConflict: 'teamleader_id' });
           }
           imported++;
