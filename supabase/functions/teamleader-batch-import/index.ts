@@ -70,10 +70,18 @@ Deno.serve(async (req) => {
 
     console.log('Found TeamLeader connection');
 
-    // Check if token needs refresh
+    // Check if token needs refresh (refresh if expiring within 5 minutes)
     let accessToken = connection.access_token;
-    if (new Date(connection.token_expires_at) <= new Date()) {
-      console.log('Token expired, refreshing...');
+    const tokenExpiresAt = new Date(connection.token_expires_at);
+    const now = new Date();
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    
+    console.log(`Token expires at: ${tokenExpiresAt.toISOString()}`);
+    console.log(`Current time: ${now.toISOString()}`);
+    console.log(`Will refresh if expires before: ${fiveMinutesFromNow.toISOString()}`);
+    
+    if (tokenExpiresAt <= fiveMinutesFromNow) {
+      console.log('Token expired or expiring soon, refreshing...');
       
       const refreshResponse = await fetch('https://app.teamleader.eu/oauth2/access_token', {
         method: 'POST',
@@ -89,22 +97,37 @@ Deno.serve(async (req) => {
         }),
       });
 
-      const refreshData = await refreshResponse.json();
+      console.log(`Token refresh response status: ${refreshResponse.status}`);
+      
       if (!refreshResponse.ok) {
-        console.error('Token refresh failed:', refreshData);
-        throw new Error(`Token refresh failed: ${refreshResponse.status} - ${JSON.stringify(refreshData)}`);
+        const errorText = await refreshResponse.text();
+        console.error('Token refresh failed:', errorText);
+        throw new Error(`Token refresh failed: ${refreshResponse.status} - Please reconnect to TeamLeader`);
       }
 
+      const refreshData = await refreshResponse.json();
+      console.log('Token refreshed successfully');
+      
       accessToken = refreshData.access_token;
-      await supabase
+      
+      // Update the token in the database
+      const { error: updateError } = await supabase
         .from('teamleader_connections')
         .update({
           access_token: refreshData.access_token,
-          refresh_token: refreshData.refresh_token,
-          token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000),
-          updated_at: new Date(),
+          refresh_token: refreshData.refresh_token || connection.refresh_token,
+          token_expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
         })
         .eq('id', connection.id);
+        
+      if (updateError) {
+        console.error('Failed to update token in database:', updateError);
+      } else {
+        console.log('Token updated in database successfully');
+      }
+    } else {
+      console.log('Token is still valid, no refresh needed');
     }
 
     // Get TeamLeader endpoint and Supabase table
