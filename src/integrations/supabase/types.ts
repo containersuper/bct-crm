@@ -1067,6 +1067,9 @@ export type Database = {
           invoice_date: string | null
           invoice_number: string | null
           payment_date: string | null
+          pdf_download_status: string | null
+          pdf_downloaded_at: string | null
+          pdf_url: string | null
           status: string | null
           teamleader_id: string
           title: string | null
@@ -1086,6 +1089,9 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           payment_date?: string | null
+          pdf_download_status?: string | null
+          pdf_downloaded_at?: string | null
+          pdf_url?: string | null
           status?: string | null
           teamleader_id: string
           title?: string | null
@@ -1105,6 +1111,9 @@ export type Database = {
           invoice_date?: string | null
           invoice_number?: string | null
           payment_date?: string | null
+          pdf_download_status?: string | null
+          pdf_downloaded_at?: string | null
+          pdf_url?: string | null
           status?: string | null
           teamleader_id?: string
           title?: string | null
@@ -1190,6 +1199,9 @@ export type Database = {
           deal_id: string | null
           description: string | null
           id: string
+          pdf_download_status: string | null
+          pdf_downloaded_at: string | null
+          pdf_url: string | null
           quote_date: string | null
           quote_number: string | null
           status: string | null
@@ -1208,6 +1220,9 @@ export type Database = {
           deal_id?: string | null
           description?: string | null
           id?: string
+          pdf_download_status?: string | null
+          pdf_downloaded_at?: string | null
+          pdf_url?: string | null
           quote_date?: string | null
           quote_number?: string | null
           status?: string | null
@@ -1226,6 +1241,9 @@ export type Database = {
           deal_id?: string | null
           description?: string | null
           id?: string
+          pdf_download_status?: string | null
+          pdf_downloaded_at?: string | null
+          pdf_url?: string | null
           quote_date?: string | null
           quote_number?: string | null
           status?: string | null
