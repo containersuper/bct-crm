@@ -93,6 +93,8 @@ serve(async (req) => {
     }
 
     const teamleaderData = await teamleaderResponse.json();
+    console.log(`TeamLeader API response:`, JSON.stringify(teamleaderData, null, 2));
+    
     const records = teamleaderData.data || [];
     const hasMore = teamleaderData.meta?.pagination?.has_more || false;
     
