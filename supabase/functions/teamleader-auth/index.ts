@@ -57,11 +57,17 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case 'authorize':
+        console.log('TeamLeader authorization request - Client ID:', clientId);
+        
         // Return the authorization URL
+        const redirectUri = 'https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/teamleader';
         const authUrl = `${TEAMLEADER_BASE_URL}/oauth2/authorize?` +
           `client_id=${clientId}&` +
           `response_type=code&` +
-          `redirect_uri=${encodeURIComponent('https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/teamleader')}`;
+          `redirect_uri=${encodeURIComponent(redirectUri)}`;
+        
+        console.log('Generated auth URL:', authUrl);
+        console.log('Redirect URI:', redirectUri);
         
         response = { authUrl };
         break;
