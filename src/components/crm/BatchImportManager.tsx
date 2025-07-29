@@ -105,12 +105,18 @@ export function BatchImportManager() {
       console.error('Import error:', error);
       const errorMessage = error.message || 'Unbekannter Fehler';
       
-      if (errorMessage.includes('Failed to refresh TeamLeader token')) {
-        toast.error(`Token-Refresh fehlgeschlagen. Bitte erneuern Sie die TeamLeader-Verbindung.`);
+      if (errorMessage.includes('Failed to refresh TeamLeader token') || 
+          errorMessage.includes('Missing authorization header') ||
+          errorMessage.includes('401')) {
+        toast.error(`⚠️ TeamLeader-Token abgelaufen! Bitte gehen Sie zu CRM Integration und autorisieren Sie sich neu.`, {
+          duration: 8000
+        });
+      } else if (errorMessage.includes('No active TeamLeader connection found')) {
+        toast.error(`❌ Keine TeamLeader-Verbindung! Bitte gehen Sie zu CRM Integration und verbinden Sie sich mit TeamLeader.`, {
+          duration: 8000
+        });
       } else if (errorMessage.includes('TeamLeader client credentials not configured')) {
         toast.error(`TeamLeader-Credentials nicht konfiguriert. Bitte prüfen Sie die Konfiguration.`);
-      } else if (errorMessage.includes('access_denied')) {
-        toast.error(`Zugriff verweigert. Bitte autorisieren Sie sich erneut bei TeamLeader.`);
       } else {
         toast.error(`Import Fehler: ${errorMessage}`);
       }
