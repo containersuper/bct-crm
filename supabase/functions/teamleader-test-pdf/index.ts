@@ -31,13 +31,16 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Get TeamLeader connection
-    const { data: connection, error: connectionError } = await supabase
+    // Get TeamLeader connection (most recent active one)
+    const { data: connections, error: connectionError } = await supabase
       .from('teamleader_connections')
       .select('*')
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    const connection = connections?.[0]
 
     if (connectionError || !connection) {
       console.error('No active TeamLeader connection found:', connectionError)
