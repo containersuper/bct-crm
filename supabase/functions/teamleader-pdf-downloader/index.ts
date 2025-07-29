@@ -61,12 +61,17 @@ Deno.serve(async (req) => {
     if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
       console.log('Token expired, refreshing...')
       
+      const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID')!
+      const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET')!
+      const credentials = btoa(`${clientId}:${clientSecret}`)
+      
       const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${credentials}`
+        },
         body: new URLSearchParams({
-          'client_id': Deno.env.get('TEAMLEADER_CLIENT_ID')!,
-          'client_secret': Deno.env.get('TEAMLEADER_CLIENT_SECRET')!,
           'refresh_token': connection.refresh_token!,
           'grant_type': 'refresh_token'
         })
