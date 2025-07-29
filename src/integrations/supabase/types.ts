@@ -1062,13 +1062,6 @@ export type Database = {
             referencedRelation: "customers"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "teamleader_invoices_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "teamleader_deals"
-            referencedColumns: ["id"]
-          },
         ]
       }
       teamleader_projects: {
