@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle, ExternalLink, Download } from 'lucide-react';
+import { AlertCircle, CheckCircle, ExternalLink, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface TeamLeaderConnection {
@@ -157,6 +157,43 @@ export function TeamLeaderConnection() {
     }
   };
 
+  const handleImportEverything = async () => {
+    try {
+      setIsImporting(true);
+      setImportingType('everything');
+      console.log('Starting import of ALL data...');
+      toast.info('Importing ALL data from TeamLeader...');
+
+      const types = ['contacts', 'companies', 'deals', 'invoices', 'quotes', 'projects'];
+      let totalImported = 0;
+
+      for (const type of types) {
+        try {
+          console.log(`Importing ${type}...`);
+          const { data, error } = await supabase.functions.invoke('teamleader-import', {
+            body: { type, limit: 1000 }
+          });
+
+          if (data?.success) {
+            totalImported += data.imported || 0;
+            console.log(`✅ ${type}: ${data.imported} imported`);
+          }
+        } catch (error) {
+          console.log(`❌ ${type}: failed`);
+        }
+      }
+
+      toast.success(`✅ Import complete! Total: ${totalImported} records`);
+      checkConnection();
+    } catch (error: any) {
+      console.error('Import error:', error);
+      toast.error('Import failed');
+    } finally {
+      setIsImporting(false);
+      setImportingType(null);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -205,9 +242,34 @@ export function TeamLeaderConnection() {
               </Button>
             </div>
             
+            <div className="space-y-4">
+              <Button 
+                onClick={handleImportEverything}
+                disabled={isImporting}
+                size="lg"
+                className="w-full"
+                variant={importingType === 'everything' ? 'secondary' : 'default'}
+              >
+                {importingType === 'everything' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Importing Everything...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Import ALL Data Now
+                  </>
+                )}
+              </Button>
+              
+              <div className="text-xs text-muted-foreground text-center">
+                This will import all contacts, companies, deals, invoices, quotes, and projects
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <h4 className="font-medium">Import All Data</h4>
-              <p className="text-xs text-muted-foreground">Each button will import ALL records of that type automatically</p>
+              <h4 className="font-medium">Import Individual Types</h4>
               <div className="grid grid-cols-2 gap-2">
                 <Button 
                   onClick={() => handleImportAll('contacts')}
