@@ -775,6 +775,54 @@ export type Database = {
           },
         ]
       }
+      teamleader_batch_import_progress: {
+        Row: {
+          batch_size: number | null
+          completed_at: string | null
+          error_details: Json | null
+          id: string
+          import_type: string
+          last_imported_id: string | null
+          last_imported_page: number | null
+          last_updated_at: string
+          started_at: string
+          status: string
+          total_estimated: number | null
+          total_imported: number | null
+          user_id: string
+        }
+        Insert: {
+          batch_size?: number | null
+          completed_at?: string | null
+          error_details?: Json | null
+          id?: string
+          import_type: string
+          last_imported_id?: string | null
+          last_imported_page?: number | null
+          last_updated_at?: string
+          started_at?: string
+          status?: string
+          total_estimated?: number | null
+          total_imported?: number | null
+          user_id: string
+        }
+        Update: {
+          batch_size?: number | null
+          completed_at?: string | null
+          error_details?: Json | null
+          id?: string
+          import_type?: string
+          last_imported_id?: string | null
+          last_imported_page?: number | null
+          last_updated_at?: string
+          started_at?: string
+          status?: string
+          total_estimated?: number | null
+          total_imported?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       teamleader_conflicts: {
         Row: {
           conflict_field: string

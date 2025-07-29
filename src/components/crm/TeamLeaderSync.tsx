@@ -13,6 +13,7 @@ import { AlertCircle, CheckCircle, Clock, RefreshCw, Settings, ArrowLeftRight, H
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { BatchImportManager } from "./BatchImportManager";
 
 interface SyncStatus {
   status: 'idle' | 'syncing' | 'success' | 'error' | 'disconnected' | 'connected';
@@ -470,8 +471,9 @@ export function TeamLeaderSync() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="mapping" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="batch" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="batch">Stapel Import</TabsTrigger>
           <TabsTrigger value="mapping">Field Mapping</TabsTrigger>
           <TabsTrigger value="conflicts">
             Conflicts {conflicts.length > 0 && 
@@ -480,6 +482,11 @@ export function TeamLeaderSync() {
           <TabsTrigger value="history">History</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
+
+        {/* Batch Import Manager */}
+        <TabsContent value="batch">
+          <BatchImportManager />
+        </TabsContent>
 
         {/* Field Mapping Configuration */}
         <TabsContent value="mapping">
