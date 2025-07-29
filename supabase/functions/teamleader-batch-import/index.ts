@@ -50,17 +50,23 @@ Deno.serve(async (req) => {
 
     // Get active TeamLeader connection
     console.log('Getting TeamLeader connection...');
-    const { data: connection, error: connectionError } = await supabase
+    const { data: connections, error: connectionError } = await supabase
       .from('teamleader_connections')
       .select('*')
       .eq('user_id', user.id)
-      .eq('is_active', true)
-      .single();
+      .eq('is_active', true);
 
-    if (connectionError || !connection) {
+    if (connectionError) {
       console.error('Connection error:', connectionError);
+      throw new Error(`Database error: ${connectionError.message}`);
+    }
+
+    if (!connections || connections.length === 0) {
+      console.error('No connections found for user:', user.id);
       throw new Error('No active TeamLeader connection found');
     }
+
+    const connection = connections[0];
 
     console.log('Found TeamLeader connection');
 
