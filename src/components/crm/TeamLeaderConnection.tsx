@@ -89,31 +89,34 @@ export function TeamLeaderConnection() {
     }
   };
 
-  const handleImport = async (type: 'contacts' | 'companies' | 'deals') => {
+  const handleTest = async () => {
     try {
       setIsImporting(true);
-      console.log(`Starting import of ${type}...`);
+      console.log('Testing TeamLeader connection...');
 
-      const { data, error } = await supabase.functions.invoke('teamleader-import', {
-        body: { type, limit: 100 }
-      });
+      const { data, error } = await supabase.functions.invoke('teamleader-test');
 
       if (error) {
-        console.error('Import error:', error);
-        throw new Error(error.message || 'Import failed');
+        console.error('Test error:', error);
+        toast.error('Connection test failed: ' + error.message);
+        return;
       }
 
       if (data?.success) {
-        toast.success(`Successfully imported ${data.imported} ${type}`);
+        toast.success(`Connection works! Found ${data.contactsFound} contacts`);
       } else {
-        throw new Error(data?.error || 'Import failed');
+        toast.error(data?.message || 'Connection test failed');
       }
     } catch (error) {
-      console.error('Import error:', error);
-      toast.error(`Failed to import ${type}: ` + error.message);
+      console.error('Test error:', error);
+      toast.error('Test failed: ' + error.message);
     } finally {
       setIsImporting(false);
     }
+  };
+
+  const handleImport = async (type: 'contacts' | 'companies' | 'deals') => {
+    toast.info('Import feature coming after connection test works');
   };
 
   if (loading) {
@@ -150,6 +153,18 @@ export function TeamLeaderConnection() {
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>Connected on: {new Date(connection.created_at).toLocaleDateString()}</p>
               <p>Token expires: {new Date(connection.token_expires_at).toLocaleDateString()}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <h4 className="font-medium">Test Connection</h4>
+              <Button 
+                onClick={handleTest}
+                disabled={isImporting}
+                size="sm"
+                variant="secondary"
+              >
+                {isImporting ? 'Testing...' : 'Test Connection'}
+              </Button>
             </div>
             
             <div className="space-y-2">
