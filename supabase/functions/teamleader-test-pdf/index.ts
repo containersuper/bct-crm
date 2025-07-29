@@ -55,8 +55,17 @@ Deno.serve(async (req) => {
     if (connection.token_expires_at && new Date(connection.token_expires_at) <= new Date()) {
       console.log('Token expired, refreshing...')
       
-      const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID')!
-      const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET')!
+      const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID')
+      const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET')
+      
+      if (!clientId || !clientSecret) {
+        console.error('Missing TeamLeader client credentials')
+        return new Response(
+          JSON.stringify({ error: 'Missing TeamLeader client credentials. Please configure TEAMLEADER_CLIENT_ID and TEAMLEADER_CLIENT_SECRET.' }),
+          { status: 500, headers: corsHeaders }
+        )
+      }
+      
       const credentials = btoa(`${clientId}:${clientSecret}`)
       
       const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
@@ -94,7 +103,11 @@ Deno.serve(async (req) => {
         const errorText = await refreshResponse.text()
         console.error('Token refresh failed:', refreshResponse.status, errorText)
         return new Response(
-          JSON.stringify({ error: 'Failed to refresh TeamLeader token' }),
+          JSON.stringify({ 
+            error: 'Failed to refresh TeamLeader token',
+            details: errorText,
+            status: refreshResponse.status
+          }),
           { status: 401, headers: corsHeaders }
         )
       }
