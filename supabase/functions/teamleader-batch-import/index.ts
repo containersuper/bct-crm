@@ -81,6 +81,15 @@ serve(async (req) => {
     if (tokenExpiresAt <= now) {
       console.log("Access token expired, refreshing...");
       
+      const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID');
+      const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET');
+      
+      if (!clientId || !clientSecret) {
+        throw new Error('TeamLeader client credentials not configured');
+      }
+      
+      console.log(`Refreshing token with client ID: ${clientId.substring(0, 8)}...`);
+      
       // Refresh the token
       const refreshResponse = await fetch('https://api.teamleader.eu/oauth2/access_token', {
         method: 'POST',
@@ -90,17 +99,23 @@ serve(async (req) => {
         body: new URLSearchParams({
           grant_type: 'refresh_token',
           refresh_token: connection.refresh_token,
-          client_id: Deno.env.get('TEAMLEADER_CLIENT_ID') || '',
-          client_secret: Deno.env.get('TEAMLEADER_CLIENT_SECRET') || '',
+          client_id: clientId,
+          client_secret: clientSecret,
         }),
       });
       
+      console.log(`Token refresh response status: ${refreshResponse.status}`);
+      
       if (!refreshResponse.ok) {
-        throw new Error('Failed to refresh TeamLeader token');
+        const errorText = await refreshResponse.text();
+        console.error(`Token refresh failed: ${errorText}`);
+        throw new Error(`Failed to refresh TeamLeader token: ${refreshResponse.status} - ${errorText}`);
       }
       
       const tokenData = await refreshResponse.json();
       accessToken = tokenData.access_token;
+      
+      console.log("Token refreshed successfully, updating database...");
       
       // Update the connection with new token
       const updateResponse = await fetch(`${SUPABASE_URL}/rest/v1/teamleader_connections?id=eq.${connection.id}`, {
@@ -120,9 +135,11 @@ serve(async (req) => {
       
       if (!updateResponse.ok) {
         console.warn('Failed to update token in database, but continuing with fresh token');
+      } else {
+        console.log("Database updated with new token");
       }
-      
-      console.log("Token refreshed successfully");
+    } else {
+      console.log("Token is still valid, no refresh needed");
     }
     
     console.log("TeamLeader connection ready");
