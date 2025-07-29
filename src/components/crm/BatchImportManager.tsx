@@ -64,59 +64,53 @@ export function BatchImportManager() {
     setImporting(prev => ({ ...prev, [importType]: true }));
     
     try {
-      console.log(`Starting import for ${importType}...`);
+      console.log(`Starting batch import for ${importType}...`);
       
-      // Use the proven teamleader-sync function with full_import action
-      const { data, error } = await supabase.functions.invoke('teamleader-sync', {
+      // Use the original teamleader-batch-import function that worked yesterday
+      const { data, error } = await supabase.functions.invoke('teamleader-batch-import', {
         body: { 
-          action: 'full_import',
-          syncType: importType,
-          batchSize: 100,
-          maxPages: 1
+          importType,
+          batchSize: 100
         }
       });
 
-      console.log('Response from teamleader-sync:', data, error);
+      console.log('Response from teamleader-batch-import:', data, error);
 
       if (error) {
         console.error('Supabase function error:', error);
         throw new Error(`Function error: ${error.message || 'Unknown error'}`);
       }
 
-      if (data && typeof data === 'object') {
+      if (data) {
         await loadProgress();
         
-        if ('processed' in data) {
-          const imported = data.processed || 0;
-          const successful = data.failed !== undefined ? data.processed - data.failed : imported;
+        if (data.success) {
+          const imported = data.imported || 0;
+          const hasMore = data.hasMore || false;
           
-          if (successful > 0) {
-            toast.success(`${successful} ${importType} erfolgreich importiert!`);
+          if (hasMore) {
+            toast.success(`${imported} ${importType} importiert! Klicken Sie "Weiter importieren" für mehr.`);
+          } else {
+            toast.success(`Import abgeschlossen! ${imported} ${importType} importiert.`);
           }
-          
-          if (data.failed && data.failed > 0) {
-            toast.error(`${data.failed} ${importType} konnten nicht importiert werden.`);
-          }
-
-          if (imported === 0) {
-            toast.info(`Alle ${importType} sind bereits importiert.`);
-          }
-        } else if ('success' in data && data.success) {
-          toast.success(`${importType} Import erfolgreich abgeschlossen!`);
+        } else if (data.error) {
+          throw new Error(data.error);
         } else {
-          throw new Error(data.error || 'Unerwartetes Response-Format von der Sync-Function');
+          throw new Error('Unerwartetes Response-Format von der Batch-Import-Function');
         }
       } else {
-        throw new Error('Keine Daten von der Sync-Function erhalten');
+        throw new Error('Keine Daten von der Batch-Import-Function erhalten');
       }
     } catch (error) {
       console.error('Import error:', error);
       const errorMessage = error.message || 'Unbekannter Fehler';
       
-      if (errorMessage.includes('Token expired')) {
-        toast.error(`Token abgelaufen. Bitte erneuern Sie die TeamLeader-Verbindung.`);
-      } else if (errorMessage.includes('TeamLeader connection not found')) {
-        toast.error(`Keine TeamLeader-Verbindung gefunden. Bitte autorisieren Sie sich zuerst.`);
+      if (errorMessage.includes('Failed to refresh TeamLeader token')) {
+        toast.error(`Token-Refresh fehlgeschlagen. Bitte erneuern Sie die TeamLeader-Verbindung.`);
+      } else if (errorMessage.includes('TeamLeader client credentials not configured')) {
+        toast.error(`TeamLeader-Credentials nicht konfiguriert. Bitte prüfen Sie die Konfiguration.`);
+      } else if (errorMessage.includes('access_denied')) {
+        toast.error(`Zugriff verweigert. Bitte autorisieren Sie sich erneut bei TeamLeader.`);
       } else {
         toast.error(`Import Fehler: ${errorMessage}`);
       }
