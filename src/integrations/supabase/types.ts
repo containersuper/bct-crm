@@ -823,6 +823,63 @@ export type Database = {
         }
         Relationships: []
       }
+      teamleader_companies: {
+        Row: {
+          address: string | null
+          business_type: string | null
+          city: string | null
+          country: string | null
+          created_at: string | null
+          currency: string | null
+          customer_id: number | null
+          email: string | null
+          id: string
+          name: string | null
+          phone: string | null
+          postal_code: string | null
+          teamleader_id: string
+          updated_at: string | null
+          vat_number: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          teamleader_id: string
+          updated_at?: string | null
+          vat_number?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_type?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          currency?: string | null
+          customer_id?: number | null
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          teamleader_id?: string
+          updated_at?: string | null
+          vat_number?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       teamleader_conflicts: {
         Row: {
           conflict_field: string

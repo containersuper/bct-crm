@@ -164,7 +164,7 @@ export function TeamLeaderConnection() {
       console.log('Starting import of ALL data...');
       toast.info('Importing ALL data from TeamLeader...');
 
-      const types = ['invoices'];
+      const types = ['companies'];
       let totalImported = 0;
 
       for (const type of types) {
