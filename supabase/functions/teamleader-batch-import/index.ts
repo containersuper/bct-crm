@@ -266,7 +266,7 @@ function getTeamLeaderEndpoint(importType: string): string {
 function getSupabaseTable(importType: string): string {
   switch (importType) {
     case 'contacts': return 'customers';
-    case 'companies': return 'customers';
+    case 'companies': return 'teamleader_companies';
     case 'deals': return 'teamleader_deals';
     case 'invoices': return 'teamleader_invoices';
     case 'quotes': return 'teamleader_quotes';
@@ -293,9 +293,16 @@ function mapTeamLeaderRecord(record: any, importType: string): any {
         name: record.name,
         email: record.emails?.[0]?.email || null,
         phone: record.telephones?.[0]?.number || null,
-        company: record.name,
-        brand: 'TeamLeader',
+        vat_number: record.vat_number,
+        website: record.web_url,
+        address: record.primary_address?.line_1,
+        city: record.primary_address?.city,
+        postal_code: record.primary_address?.postal_code,
+        country: record.primary_address?.country,
+        business_type: record.business_type?.name,
+        currency: 'EUR',
         created_at: new Date(),
+        updated_at: new Date(),
       };
     case 'deals':
       return {
