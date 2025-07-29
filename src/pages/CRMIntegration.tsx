@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { TeamLeaderSync } from "@/components/crm/TeamLeaderSync";
+import { TeamLeaderConnection } from "@/components/crm/TeamLeaderConnection";
 import { TeamLeaderAuthCallback } from "@/components/crm/TeamLeaderAuthCallback";
 
 export default function CRMIntegration() {
@@ -16,11 +16,13 @@ export default function CRMIntegration() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">CRM Integration</h1>
         <p className="text-muted-foreground">
-          Manage your TeamLeader CRM synchronization and data mapping
+          Connect to TeamLeader and import your CRM data step by step
         </p>
       </div>
       
-      <TeamLeaderSync />
+      <div className="max-w-2xl">
+        <TeamLeaderConnection />
+      </div>
     </div>
   );
 }

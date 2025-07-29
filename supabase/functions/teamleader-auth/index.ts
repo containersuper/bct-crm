@@ -6,9 +6,8 @@ const corsHeaders = {
 };
 
 interface TeamLeaderAuthRequest {
-  action: 'authorize' | 'token' | 'refresh';
+  action: 'authorize' | 'token';
   code?: string;
-  refreshToken?: string;
 }
 
 interface TeamLeaderTokenResponse {
@@ -27,6 +26,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('=== TEAMLEADER AUTH START ===');
+    
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -44,7 +45,10 @@ Deno.serve(async (req) => {
       throw new Error('Invalid authentication token');
     }
 
-    const { action, code, refreshToken }: TeamLeaderAuthRequest = await req.json();
+    console.log('User authenticated:', user.id);
+
+    const { action, code }: TeamLeaderAuthRequest = await req.json();
+    console.log('Action requested:', action);
 
     const clientId = Deno.env.get('TEAMLEADER_CLIENT_ID');
     const clientSecret = Deno.env.get('TEAMLEADER_CLIENT_SECRET');
@@ -53,13 +57,12 @@ Deno.serve(async (req) => {
       throw new Error('TeamLeader credentials not configured');
     }
 
+    console.log('Using Client ID:', clientId.substring(0, 8) + '...');
+
     let response;
 
     switch (action) {
       case 'authorize':
-        console.log('TeamLeader authorization request - Client ID:', clientId);
-        
-        // Return the authorization URL
         const redirectUri = 'https://eea0dc2e-67b5-433a-93d5-671e25c26865.lovableproject.com/auth/callback/teamleader';
         const authUrl = `${TEAMLEADER_BASE_URL}/oauth2/authorize?` +
           `client_id=${clientId}&` +
@@ -67,7 +70,6 @@ Deno.serve(async (req) => {
           `redirect_uri=${encodeURIComponent(redirectUri)}`;
         
         console.log('Generated auth URL:', authUrl);
-        console.log('Redirect URI:', redirectUri);
         
         response = { authUrl };
         break;
@@ -76,6 +78,8 @@ Deno.serve(async (req) => {
         if (!code) {
           throw new Error('Authorization code is required');
         }
+
+        console.log('Exchanging code for token...');
 
         // Exchange authorization code for access token
         const tokenResponse = await fetch(`${TEAMLEADER_BASE_URL}/oauth2/access_token`, {
@@ -99,13 +103,24 @@ Deno.serve(async (req) => {
         }
 
         const tokenData: TeamLeaderTokenResponse = await tokenResponse.json();
+        console.log('Token received successfully');
 
-        // Store tokens in database
+        // Store tokens in database - first delete any existing connections for this user
+        const { error: deleteError } = await supabase
+          .from('teamleader_connections')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (deleteError) {
+          console.error('Error deleting old connections:', deleteError);
+        }
+
+        // Store new connection
         const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000);
         
         const { error: dbError } = await supabase
           .from('teamleader_connections')
-          .upsert({
+          .insert({
             user_id: user.id,
             access_token: tokenData.access_token,
             refresh_token: tokenData.refresh_token,
@@ -118,61 +133,15 @@ Deno.serve(async (req) => {
           throw new Error('Failed to store tokens');
         }
 
+        console.log('Tokens stored successfully');
         response = { success: true, expiresAt };
-        break;
-
-      case 'refresh':
-        if (!refreshToken) {
-          throw new Error('Refresh token is required');
-        }
-
-        // Refresh access token
-        const refreshResponse = await fetch(`${TEAMLEADER_BASE_URL}/oauth2/access_token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            client_id: clientId,
-            client_secret: clientSecret,
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token'
-          })
-        });
-
-        if (!refreshResponse.ok) {
-          const errorText = await refreshResponse.text();
-          console.error('TeamLeader refresh error:', errorText);
-          throw new Error(`Failed to refresh token: ${errorText}`);
-        }
-
-        const refreshData: TeamLeaderTokenResponse = await refreshResponse.json();
-
-        // Update tokens in database
-        const newExpiresAt = new Date(Date.now() + refreshData.expires_in * 1000);
-        
-        const { error: updateError } = await supabase
-          .from('teamleader_connections')
-          .update({
-            access_token: refreshData.access_token,
-            refresh_token: refreshData.refresh_token,
-            token_expires_at: newExpiresAt.toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id);
-
-        if (updateError) {
-          console.error('Database update error:', updateError);
-          throw new Error('Failed to update tokens');
-        }
-
-        response = { success: true, expiresAt: newExpiresAt };
         break;
 
       default:
         throw new Error('Invalid action');
     }
 
+    console.log('=== TEAMLEADER AUTH SUCCESS ===');
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
