@@ -67,9 +67,16 @@ export function EmailProcessingDashboard() {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('EmailProcessingDashboard component mounted');
     loadProcessingStats();
-    const interval = setInterval(loadProcessingStats, 5000); // Update every 5 seconds
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing stats...');
+      loadProcessingStats();
+    }, 5000); // Update every 5 seconds
+    return () => {
+      console.log('EmailProcessingDashboard component unmounting');
+      clearInterval(interval);
+    };
   }, []);
 
   const loadProcessingStats = async () => {
@@ -162,6 +169,8 @@ export function EmailProcessingDashboard() {
 
     } catch (error) {
       console.error('Error loading processing stats:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
     }
   };
 
