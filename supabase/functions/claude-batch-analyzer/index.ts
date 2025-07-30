@@ -28,6 +28,32 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Clean up stuck jobs and create new processing job
+    await supabase
+      .from('email_processing_jobs')
+      .update({ status: 'failed', error_details: { reason: 'Job timeout - cleaned up by new batch' } })
+      .eq('status', 'running');
+
+    // Create new processing job
+    const { data: jobData, error: jobError } = await supabase
+      .from('email_processing_jobs')
+      .insert({
+        job_type: 'batch_analysis',
+        batch_size: batchSize,
+        status: 'running',
+        emails_processed: 0,
+        success_count: 0,
+        error_count: 0
+      })
+      .select()
+      .single();
+
+    if (jobError || !jobData) {
+      throw new Error(`Failed to create processing job: ${jobError?.message}`);
+    }
+
+    const jobId = jobData.id;
+
     // Get emails that need analysis
     let query = supabase
       .from('email_history')
@@ -42,6 +68,17 @@ serve(async (req) => {
     const { data: emails, error: emailError } = await query;
 
     if (emailError || !emails || emails.length === 0) {
+      // Update job status to completed
+      await supabase
+        .from('email_processing_jobs')
+        .update({ 
+          status: 'completed',
+          emails_processed: 0,
+          success_count: 0,
+          error_count: 0
+        })
+        .eq('id', jobId);
+
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No emails to analyze',
@@ -148,11 +185,23 @@ serve(async (req) => {
         }
       });
 
+    // Update final job status
+    await supabase
+      .from('email_processing_jobs')
+      .update({ 
+        status: 'completed',
+        emails_processed: emails.length,
+        success_count: successCount,
+        error_count: failureCount
+      })
+      .eq('id', jobId);
+
     console.log(`Batch ${batchId} completed: ${successCount} success, ${failureCount} failures`);
 
     return new Response(JSON.stringify({
       success: true,
       batch_id: batchId,
+      job_id: jobId,
       processed: emails.length,
       success_count: successCount,
       failure_count: failureCount
@@ -162,6 +211,24 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in claude-batch-analyzer:', error);
+    
+    // Try to update job status to failed if we have a jobId
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
+      await supabase
+        .from('email_processing_jobs')
+        .update({ 
+          status: 'failed',
+          error_details: { error: error.message, timestamp: new Date().toISOString() }
+        })
+        .eq('status', 'running');
+    } catch (updateError) {
+      console.error('Failed to update job status:', updateError);
+    }
+    
     return new Response(JSON.stringify({ 
       success: false, 
       error: error.message 
