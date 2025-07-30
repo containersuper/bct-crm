@@ -318,15 +318,24 @@ export function EmailProcessingDashboard() {
           <h1 className="text-3xl font-bold">Email Processing Dashboard</h1>
           <p className="text-muted-foreground">Real-time monitoring of email backlog processing</p>
         </div>
-        <Button 
-          onClick={toggleProcessing}
-          variant={isProcessing ? "destructive" : "default"}
-          size="lg"
-          className="animate-pulse"
-        >
-          {isProcessing ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
-          {isProcessing ? "Pause Processing" : "Start Processing"}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={loadProcessingStats}
+            variant="outline"
+            size="lg"
+          >
+            Refresh Data
+          </Button>
+          <Button 
+            onClick={toggleProcessing}
+            variant={isProcessing ? "destructive" : "default"}
+            size="lg"
+            className="animate-pulse"
+          >
+            {isProcessing ? <Pause className="mr-2 h-4 w-4" /> : <Play className="mr-2 h-4 w-4" />}
+            {isProcessing ? "Pause Processing" : "Start Processing"}
+          </Button>
+        </div>
       </div>
 
       {/* Main Progress Section */}
