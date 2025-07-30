@@ -89,6 +89,13 @@ export type Database = {
             referencedRelation: "email_history"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ai_responses_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "email_intelligence_summary"
+            referencedColumns: ["id"]
+          },
         ]
       }
       customer_intelligence: {
@@ -265,8 +272,10 @@ export type Database = {
           key_phrases: Json | null
           language: string
           sentiment: string
+          sentiment_category: string | null
           sentiment_score: number | null
           urgency: string
+          urgency_priority: number | null
         }
         Insert: {
           analysis_timestamp?: string
@@ -280,8 +289,10 @@ export type Database = {
           key_phrases?: Json | null
           language?: string
           sentiment?: string
+          sentiment_category?: string | null
           sentiment_score?: number | null
           urgency?: string
+          urgency_priority?: number | null
         }
         Update: {
           analysis_timestamp?: string
@@ -295,8 +306,10 @@ export type Database = {
           key_phrases?: Json | null
           language?: string
           sentiment?: string
+          sentiment_category?: string | null
           sentiment_score?: number | null
           urgency?: string
+          urgency_priority?: number | null
         }
         Relationships: [
           {
@@ -304,6 +317,13 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: true
             referencedRelation: "email_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_analytics_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: true
+            referencedRelation: "email_intelligence_summary"
             referencedColumns: ["id"]
           },
         ]
@@ -1314,12 +1334,42 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      email_intelligence_summary: {
+        Row: {
+          analysis_timestamp: string | null
+          brand: string | null
+          created_at: string | null
+          customer_company: string | null
+          customer_name: string | null
+          entities: Json | null
+          from_address: string | null
+          id: number | null
+          intent: string | null
+          intent_confidence: number | null
+          key_phrases: Json | null
+          language: string | null
+          next_best_action: string | null
+          opportunity_score: number | null
+          price_sensitivity: string | null
+          risk_score: number | null
+          sentiment: string | null
+          sentiment_score: number | null
+          subject: string | null
+          to_address: string | null
+          urgency: string | null
+          urgency_priority: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       is_date_range_processed: {
         Args: { p_account_id: string; p_start_date: string; p_end_date: string }
         Returns: boolean
+      }
+      refresh_email_intelligence: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       start_email_processing: {
         Args: { p_job_type: string; p_batch_size?: number }
