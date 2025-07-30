@@ -293,10 +293,10 @@ export function GmailStyleEmailClient() {
           </div>
         </div>
 
-        {/* Email List and Preview */}
-        <div className="flex-1 flex min-h-0">
+        {/* Email List and Preview - Horizontal Split */}
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Email List */}
-          <div className="flex-1 border-r border-border min-w-0">
+          <div className="flex-1 border-b border-border min-h-0">
             <div className="h-full overflow-hidden">
               <ScrollArea className="h-full">
                 {isLoading ? (
@@ -389,7 +389,7 @@ export function GmailStyleEmailClient() {
 
           {/* Email Preview Panel */}
           {selectedEmail && (
-            <div className="w-96 min-w-96 bg-background border-r border-border shrink-0">
+            <div className="h-80 bg-background border-t border-border shrink-0">
               <div className="h-full overflow-hidden">
                 <ScrollArea className="h-full">
                   <div className="p-6">
