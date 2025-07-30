@@ -73,6 +73,7 @@ export function EmailProcessingDashboard() {
   }, []);
 
   const loadProcessingStats = async () => {
+    console.log('Loading processing stats...');
     try {
       // Get total email count and basic stats
       const { data: totalEmailsData } = await supabase
