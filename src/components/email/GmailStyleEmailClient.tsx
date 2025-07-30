@@ -171,82 +171,84 @@ export function GmailStyleEmailClient() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="h-screen flex bg-background overflow-hidden">
       {/* Left Sidebar */}
-      <div className="w-[200px] border-r border-border bg-background flex flex-col">
-        <div className="p-4">
-          <Button className="w-full bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-full font-medium">
+      <div className="w-64 min-w-64 border-r border-border bg-background flex flex-col shrink-0">
+        <div className="p-4 border-b border-border">
+          <Button className="w-full bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-full font-medium h-12">
             <Plus className="w-4 h-4 mr-2" />
             Verfassen
           </Button>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="px-2">
-            {/* Inbox */}
-            <Button
-              variant={selectedCategory === 'inbox' ? 'secondary' : 'ghost'}
-              className="w-full justify-start mb-1 h-8 text-sm"
-              onClick={() => setSelectedCategory('inbox')}
-            >
-              <span className="flex-1">Posteingang</span>
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {emails.filter(e => !e.processed).length}
-              </Badge>
-            </Button>
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-2">
+              {/* Inbox */}
+              <Button
+                variant={selectedCategory === 'inbox' ? 'secondary' : 'ghost'}
+                className="w-full justify-start mb-1 h-9 text-sm"
+                onClick={() => setSelectedCategory('inbox')}
+              >
+                <span className="flex-1 text-left">Posteingang</span>
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {emails.filter(e => !e.processed).length}
+                </Badge>
+              </Button>
 
-            <Separator className="my-3" />
+              <Separator className="my-3" />
 
-            {/* Categories */}
-            <div className="space-y-1">
-              {categories.map((category) => (
-                <Button
-                  key={category.id}
-                  variant={selectedCategory === category.id ? 'secondary' : 'ghost'}
-                  className="w-full justify-start h-8 text-sm"
-                  onClick={() => setSelectedCategory(category.id)}
-                >
-                  <span className="mr-2">{category.icon}</span>
-                  <span className="flex-1 text-left">{category.label}</span>
-                  {category.count > 0 && (
-                    <Badge variant="secondary" className="ml-1 text-xs">
-                      {category.count}
-                    </Badge>
-                  )}
-                </Button>
-              ))}
+              {/* Categories */}
+              <div className="space-y-1">
+                {categories.map((category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'secondary' : 'ghost'}
+                    className="w-full justify-start h-9 text-sm"
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    <span className="mr-2">{category.icon}</span>
+                    <span className="flex-1 text-left truncate">{category.label}</span>
+                    {category.count > 0 && (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        {category.count}
+                      </Badge>
+                    )}
+                  </Button>
+                ))}
+              </div>
+
+              <Separator className="my-3" />
+
+              {/* Labels */}
+              <div className="text-xs text-muted-foreground mb-2 px-3">Labels</div>
+              <Button variant="ghost" className="w-full justify-start h-9 text-sm">
+                <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                Wichtig
+              </Button>
+              <Button variant="ghost" className="w-full justify-start h-9 text-sm">
+                <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                Verfolgen
+              </Button>
+
+              <Separator className="my-3" />
+
+              {/* More */}
+              <Button variant="ghost" className="w-full justify-start h-9 text-sm">
+                <Settings className="w-4 h-4 mr-2" />
+                Mehr
+              </Button>
             </div>
-
-            <Separator className="my-3" />
-
-            {/* Labels */}
-            <div className="text-xs text-muted-foreground mb-2 px-3">Labels</div>
-            <Button variant="ghost" className="w-full justify-start h-8 text-sm">
-              <span className="w-3 h-3 bg-blue-500 rounded mr-2"></span>
-              Wichtig
-            </Button>
-            <Button variant="ghost" className="w-full justify-start h-8 text-sm">
-              <span className="w-3 h-3 bg-green-500 rounded mr-2"></span>
-              Verfolgen
-            </Button>
-
-            <Separator className="my-3" />
-
-            {/* More */}
-            <Button variant="ghost" className="w-full justify-start h-8 text-sm">
-              <Settings className="w-4 h-4 mr-2" />
-              Mehr
-            </Button>
-          </div>
-        </ScrollArea>
+          </ScrollArea>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Toolbar */}
-        <div className="border-b border-border p-3 bg-background">
+        <div className="border-b border-border p-3 bg-background shrink-0">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Checkbox
                 checked={selectedEmails.size === emails.length && emails.length > 0}
                 onCheckedChange={(checked) => {
@@ -272,12 +274,12 @@ export function GmailStyleEmailClient() {
                   placeholder="E-Mails durchsuchen"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-muted/50 border-0 focus:bg-background"
+                  className="pl-10 bg-muted/50 border-0 focus:bg-background h-9"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button variant="ghost" size="sm">
                 <ChevronDown className="w-4 h-4" />
               </Button>
@@ -291,191 +293,202 @@ export function GmailStyleEmailClient() {
           </div>
         </div>
 
-        {/* Email List */}
-        <div className="flex-1 flex">
-          <div className="flex-1 border-r border-border">
-            <ScrollArea className="h-full">
-              {isLoading ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Lade E-Mails...
-                </div>
-              ) : emails.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Keine E-Mails gefunden
-                </div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {emails.map((email, index) => (
-                    <div
-                      key={email.id}
-                      className={`flex items-center p-3 hover:bg-muted/50 cursor-pointer transition-colors ${
-                        selectedEmail?.id === email.id ? 'bg-blue-50 border-l-4 border-l-[#1a73e8]' : ''
-                      } ${!email.processed ? 'font-semibold' : ''}`}
-                      onClick={() => {
-                        setSelectedEmail(email);
-                        setCurrentEmailIndex(index);
-                      }}
-                    >
-                      <Checkbox
-                        checked={selectedEmails.has(email.id)}
-                        onCheckedChange={(checked) => {
-                          const newSelected = new Set(selectedEmails);
-                          if (checked) {
-                            newSelected.add(email.id);
-                          } else {
-                            newSelected.delete(email.id);
-                          }
-                          setSelectedEmails(newSelected);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mr-3"
-                      />
-                      
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="mr-3 p-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleStar();
+        {/* Email List and Preview */}
+        <div className="flex-1 flex min-h-0">
+          {/* Email List */}
+          <div className="flex-1 border-r border-border min-w-0">
+            <div className="h-full overflow-hidden">
+              <ScrollArea className="h-full">
+                {isLoading ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    Lade E-Mails...
+                  </div>
+                ) : emails.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    Keine E-Mails gefunden
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {emails.map((email, index) => (
+                      <div
+                        key={email.id}
+                        className={`flex items-center p-3 hover:bg-muted/50 cursor-pointer transition-colors ${
+                          selectedEmail?.id === email.id ? 'bg-blue-50 border-l-4 border-l-[#1a73e8]' : ''
+                        } ${!email.processed ? 'font-semibold' : ''}`}
+                        onClick={() => {
+                          setSelectedEmail(email);
+                          setCurrentEmailIndex(index);
                         }}
                       >
-                        <StarOff className="w-4 h-4" />
-                      </Button>
+                        <Checkbox
+                          checked={selectedEmails.has(email.id)}
+                          onCheckedChange={(checked) => {
+                            const newSelected = new Set(selectedEmails);
+                            if (checked) {
+                              newSelected.add(email.id);
+                            } else {
+                              newSelected.delete(email.id);
+                            }
+                            setSelectedEmails(newSelected);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mr-3 shrink-0"
+                        />
+                        
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="mr-3 p-1 shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleStar();
+                          }}
+                        >
+                          <StarOff className="w-4 h-4" />
+                        </Button>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <div className="w-32 text-sm truncate">
-                            {email.from_address?.split('@')[0] || 'Unknown'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm truncate">
-                                {email.subject || 'Kein Betreff'}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                - {email.body?.substring(0, 50)}...
-                              </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3">
+                            <div className="w-32 text-sm truncate shrink-0">
+                              {email.from_address?.split('@')[0] || 'Unknown'}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {email.email_analytics && (
-                              <>
-                                <Badge variant="outline" className={getUrgencyColor(email.email_analytics.urgency)}>
-                                  {email.email_analytics.urgency}
-                                </Badge>
-                                <span className="text-sm">
-                                  {getSentimentIcon(email.email_analytics.sentiment)}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm truncate">
+                                  {email.subject || 'Kein Betreff'}
                                 </span>
-                              </>
-                            )}
-                            <div className="text-xs text-muted-foreground w-16 text-right">
-                              {formatDate(email.received_at)}
+                                <span className="text-xs text-muted-foreground hidden sm:inline">
+                                  - {email.body?.substring(0, 50)}...
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {email.email_analytics && (
+                                <>
+                                  <Badge variant="outline" className={`${getUrgencyColor(email.email_analytics.urgency)} hidden md:flex`}>
+                                    {email.email_analytics.urgency}
+                                  </Badge>
+                                  <span className="text-sm">
+                                    {getSentimentIcon(email.email_analytics.sentiment)}
+                                  </span>
+                                </>
+                              )}
+                              <div className="text-xs text-muted-foreground w-16 text-right">
+                                {formatDate(email.received_at)}
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           </div>
 
-          {/* Email Preview */}
+          {/* Email Preview Panel */}
           {selectedEmail && (
-            <div className="w-96 bg-background">
-              <ScrollArea className="h-full">
-                <div className="p-4">
-                  <div className="mb-4">
-                    <h3 className="font-semibold text-lg mb-2">{selectedEmail.subject}</h3>
-                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
-                      <span>{selectedEmail.from_address}</span>
-                      <span>{formatDate(selectedEmail.received_at)}</span>
+            <div className="w-96 min-w-96 bg-background border-r border-border shrink-0">
+              <div className="h-full overflow-hidden">
+                <ScrollArea className="h-full">
+                  <div className="p-6">
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-lg mb-2 leading-tight">{selectedEmail.subject}</h3>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                        <span className="truncate">{selectedEmail.from_address}</span>
+                        <span className="shrink-0 ml-2">{formatDate(selectedEmail.received_at)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="prose max-w-none">
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                        {selectedEmail.body}
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="prose max-w-none">
-                    <div className="whitespace-pre-wrap text-sm">
-                      {selectedEmail.body}
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
+                </ScrollArea>
+              </div>
             </div>
           )}
         </div>
       </div>
 
       {/* Right Sidebar */}
-      <div className="w-[300px] border-l border-border bg-background p-4 space-y-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Kundeninfo</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {selectedEmail ? (
-              <div className="space-y-2 text-sm">
-                <div><strong>E-Mail:</strong> {selectedEmail.from_address}</div>
-                <div><strong>Brand:</strong> {selectedEmail.brand || 'Unbekannt'}</div>
-                <div><strong>Status:</strong> {selectedEmail.processed ? 'Bearbeitet' : 'Neu'}</div>
-              </div>
-            ) : (
-              <div className="text-muted-foreground text-sm">Wählen Sie eine E-Mail aus</div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="w-80 min-w-80 border-l border-border bg-background shrink-0">
+        <div className="h-full overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Kundeninfo</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {selectedEmail ? (
+                    <div className="space-y-2 text-sm">
+                      <div><strong>E-Mail:</strong> <span className="break-all">{selectedEmail.from_address}</span></div>
+                      <div><strong>Brand:</strong> {selectedEmail.brand || 'Unbekannt'}</div>
+                      <div><strong>Status:</strong> {selectedEmail.processed ? 'Bearbeitet' : 'Neu'}</div>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">Wählen Sie eine E-Mail aus</div>
+                  )}
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">KI-Analyse</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {selectedEmail?.email_analytics ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Sentiment:</span>
-                  <Badge variant="outline">{selectedEmail.email_analytics.sentiment}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Intent:</span>
-                  <Badge variant="outline">{selectedEmail.email_analytics.intent}</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Dringlichkeit:</span>
-                  <Badge variant="outline" className={getUrgencyColor(selectedEmail.email_analytics.urgency)}>
-                    {selectedEmail.email_analytics.urgency}
-                  </Badge>
-                </div>
-              </div>
-            ) : (
-              <div className="text-muted-foreground text-sm">Keine Analyse verfügbar</div>
-            )}
-          </CardContent>
-        </Card>
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">KI-Analyse</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {selectedEmail?.email_analytics ? (
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between items-center">
+                        <span>Sentiment:</span>
+                        <Badge variant="outline">{selectedEmail.email_analytics.sentiment}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Intent:</span>
+                        <Badge variant="outline">{selectedEmail.email_analytics.intent}</Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Dringlichkeit:</span>
+                        <Badge variant="outline" className={getUrgencyColor(selectedEmail.email_analytics.urgency)}>
+                          {selectedEmail.email_analytics.urgency}
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">Keine Analyse verfügbar</div>
+                  )}
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">E-Mail Historie</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-muted-foreground text-sm">
-              Letzte Interaktionen werden hier angezeigt
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">E-Mail Historie</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="text-muted-foreground text-sm">
+                    Letzte Interaktionen werden hier angezeigt
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Schnellaktionen</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-2">
+                  <Button size="sm" className="w-full justify-start">Antworten</Button>
+                  <Button size="sm" variant="outline" className="w-full justify-start">Weiterleiten</Button>
+                  <Button size="sm" variant="outline" className="w-full justify-start">Angebot erstellen</Button>
+                  <Button size="sm" variant="outline" className="w-full justify-start">Kunde hinzufügen</Button>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Schnellaktionen</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            <Button size="sm" className="w-full">Antworten</Button>
-            <Button size="sm" variant="outline" className="w-full">Weiterleiten</Button>
-            <Button size="sm" variant="outline" className="w-full">Angebot erstellen</Button>
-            <Button size="sm" variant="outline" className="w-full">Kunde hinzufügen</Button>
-          </CardContent>
-        </Card>
+          </ScrollArea>
+        </div>
       </div>
     </div>
   );
