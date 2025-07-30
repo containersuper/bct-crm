@@ -23,10 +23,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get email data
+    // Get email data with customer information
     const { data: email, error: emailError } = await supabase
       .from('email_history')
-      .select('*')
+      .select(`
+        *,
+        customers (
+          id,
+          name,
+          company,
+          email,
+          customer_intelligence (
+            customer_tier
+          )
+        )
+      `)
       .eq('id', emailId)
       .single();
 
@@ -34,12 +45,17 @@ serve(async (req) => {
       throw new Error('Email not found');
     }
 
+    const isExistingCustomer = !!email.customers;
+    const customerTier = email.customers?.customer_intelligence?.[0]?.customer_tier || 'standard';
+
     // Prepare email content for Claude
     const emailContent = `
 Subject: ${email.subject || 'No subject'}
 From: ${email.from_address || 'Unknown sender'}
 To: ${email.to_address || 'Unknown recipient'}
 Body: ${email.body || 'No content'}
+Brand: ${email.brand || 'unknown'}
+Customer Status: ${isExistingCustomer ? `Existing customer (${customerTier} tier)` : 'Unknown/New sender'}
     `.trim();
 
     // Call Claude API for analysis
@@ -57,6 +73,16 @@ Analyze this email and extract the following information in JSON format:
 4. Urgency level (low, medium, high, critical)
 5. Key entities (container types, routes, quantities, dates, companies, people)
 6. Key phrases (important terms or phrases)
+7. Email category with confidence score
+
+For the email category, analyze the content and customer status to determine the most appropriate label:
+- NEUKUNDE: First-time sender, new customer inquiry
+- BESTANDSKUNDE: Email from existing customer
+- AUFTRAGSBEZOGEN: References existing orders, quotes, or specific projects
+- PREISANFRAGE: Price inquiry, quote request, cost estimation
+- LIEFERANTEN-INFO: From suppliers about inventory, shipping, product updates
+- NEWSLETTER: Marketing emails, newsletters, promotional content
+- URGENT: High priority emails requiring immediate attention
 
 Email content:
 ${emailContent}
@@ -73,7 +99,11 @@ Respond only with valid JSON in this exact format:
     {"type": "container", "value": "20ft", "confidence": 0.9},
     {"type": "route", "value": "Hamburg to Rotterdam", "confidence": 0.8}
   ],
-  "key_phrases": ["urgent delivery", "best price", "container shipping"]
+  "key_phrases": ["urgent delivery", "best price", "container shipping"],
+  "category": {
+    "label": "PREISANFRAGE",
+    "confidence": 0.85
+  }
 }
     `;
 
@@ -137,13 +167,43 @@ Respond only with valid JSON in this exact format:
       throw new Error('Failed to save analysis');
     }
 
+    // Store email label if categorization was provided
+    if (analysis.category && analysis.category.label) {
+      const { error: labelError } = await supabase
+        .from('email_labels')
+        .upsert({
+          email_id: emailId,
+          label_type: analysis.category.label,
+          confidence_score: analysis.category.confidence || 0.5,
+          is_ai_generated: true,
+          manually_overridden: false,
+          metadata: {
+            customer_tier: customerTier,
+            is_existing_customer: isExistingCustomer,
+            analysis_timestamp: new Date().toISOString()
+          }
+        }, {
+          onConflict: 'email_id,label_type'
+        });
+
+      if (labelError) {
+        console.error('Error inserting label:', labelError);
+        // Don't throw error, analysis is still successful
+      }
+    }
+
     // Log performance metric
     await supabase
       .from('ai_performance_metrics')
       .insert({
         metric_type: 'email_analysis_success',
         metric_value: 1,
-        context: { email_id: emailId, confidence: analysis.intent_confidence }
+        context: { 
+          email_id: emailId, 
+          confidence: analysis.intent_confidence,
+          category: analysis.category?.label,
+          category_confidence: analysis.category?.confidence
+        }
       });
 
     return new Response(

@@ -10,6 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+interface EmailLabel {
+  id: string;
+  email_id?: number;
+  label_type: string;
+  confidence_score: number;
+  is_ai_generated: boolean;
+  manually_overridden: boolean;
+  metadata?: any;
+}
+
 interface EmailItem {
   id: number;
   subject: string;
@@ -26,6 +36,7 @@ interface EmailItem {
     urgency: string;
     urgency_priority: number;
   };
+  email_labels?: EmailLabel[];
 }
 
 const categories = [
@@ -62,6 +73,14 @@ export function GmailStyleEmailClient() {
             intent,
             urgency,
             urgency_priority
+          ),
+          email_labels (
+            id,
+            label_type,
+            confidence_score,
+            is_ai_generated,
+            manually_overridden,
+            metadata
           )
         `)
         .order('received_at', { ascending: false })
@@ -83,6 +102,50 @@ export function GmailStyleEmailClient() {
   useEffect(() => {
     loadEmails();
   }, [loadEmails]);
+
+  // Real-time subscriptions for email labels
+  useEffect(() => {
+    if (!user) return;
+
+    const labelsChannel = supabase
+      .channel('email-labels-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_labels'
+        },
+        (payload) => {
+          console.log('Email label change:', payload);
+          // Reload emails when labels change
+          loadEmails();
+        }
+      )
+      .subscribe();
+
+    const analyticsChannel = supabase
+      .channel('email-analytics-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_analytics'
+        },
+        (payload) => {
+          console.log('Email analytics change:', payload);
+          // Reload emails when analytics change
+          loadEmails();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(labelsChannel);
+      supabase.removeChannel(analyticsChannel);
+    };
+  }, [user, loadEmails]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -153,6 +216,58 @@ export function GmailStyleEmailClient() {
       case 'negative': return '😞';
       case 'neutral': return '😐';
       default: return '❓';
+    }
+  };
+
+  const getLabelInfo = (labelType: string) => {
+    switch (labelType) {
+      case 'NEUKUNDE':
+        return { icon: '🆕', color: 'bg-green-100 text-green-800 border-green-200', text: 'Neukunde' };
+      case 'BESTANDSKUNDE':
+        return { icon: '👤', color: 'bg-blue-100 text-blue-800 border-blue-200', text: 'Bestandskunde' };
+      case 'AUFTRAGSBEZOGEN':
+        return { icon: '📦', color: 'bg-purple-100 text-purple-800 border-purple-200', text: 'Auftragsbezogen' };
+      case 'PREISANFRAGE':
+        return { icon: '💰', color: 'bg-yellow-100 text-yellow-800 border-yellow-200', text: 'Preisanfrage' };
+      case 'LIEFERANTEN-INFO':
+        return { icon: '🚚', color: 'bg-orange-100 text-orange-800 border-orange-200', text: 'Lieferanten-Info' };
+      case 'NEWSLETTER':
+        return { icon: '📰', color: 'bg-gray-100 text-gray-800 border-gray-200', text: 'Newsletter' };
+      case 'URGENT':
+        return { icon: '⚡', color: 'bg-red-100 text-red-800 border-red-200', text: 'Urgent' };
+      default:
+        return { icon: '📑', color: 'bg-muted text-muted-foreground border-border', text: 'Allgemein' };
+    }
+  };
+
+  const getConfidenceIndicator = (confidence: number) => {
+    const percentage = Math.round(confidence * 100);
+    if (confidence >= 0.8) return { color: 'text-green-600', symbol: '●', percentage };
+    if (confidence >= 0.6) return { color: 'text-yellow-600', symbol: '◐', percentage };
+    return { color: 'text-red-600', symbol: '○', percentage };
+  };
+
+  const changeEmailLabel = async (emailId: number, newLabelType: string) => {
+    try {
+      const { error } = await supabase
+        .from('email_labels')
+        .upsert({
+          email_id: emailId,
+          label_type: newLabelType,
+          confidence_score: 1.0,
+          is_ai_generated: false,
+          manually_overridden: true,
+          metadata: { manually_changed_at: new Date().toISOString() }
+        }, {
+          onConflict: 'email_id,label_type'
+        });
+
+      if (error) throw error;
+      
+      // Reload emails to show updated labels
+      loadEmails();
+    } catch (error) {
+      console.error('Error updating email label:', error);
     }
   };
 
@@ -363,9 +478,40 @@ export function GmailStyleEmailClient() {
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {/* AI Labels */}
+                              {email.email_labels && email.email_labels.length > 0 && (
+                                <div className="flex items-center gap-1">
+                                  {email.email_labels.slice(0, 2).map((label) => {
+                                    const labelInfo = getLabelInfo(label.label_type);
+                                    const confidence = getConfidenceIndicator(label.confidence_score);
+                                    return (
+                                      <div key={label.id} className="flex items-center gap-1">
+                                        <Badge 
+                                          variant="outline" 
+                                          className={`${labelInfo.color} text-xs px-2 py-1 flex items-center gap-1`}
+                                          title={`${labelInfo.text} (${confidence.percentage}% Confidence)`}
+                                        >
+                                          <span>{labelInfo.icon}</span>
+                                          <span className="hidden lg:inline">{labelInfo.text}</span>
+                                          <span className={`text-xs ${confidence.color}`} title={`${confidence.percentage}% confidence`}>
+                                            {confidence.symbol}
+                                          </span>
+                                        </Badge>
+                                      </div>
+                                    );
+                                  })}
+                                  {email.email_labels.length > 2 && (
+                                    <Badge variant="outline" className="text-xs">
+                                      +{email.email_labels.length - 2}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Analytics badges */}
                               {email.email_analytics && (
                                 <>
-                                  <Badge variant="outline" className={`${getUrgencyColor(email.email_analytics.urgency)} hidden md:flex`}>
+                                  <Badge variant="outline" className={`${getUrgencyColor(email.email_analytics.urgency)} hidden xl:flex`}>
                                     {email.email_analytics.urgency}
                                   </Badge>
                                   <span className="text-sm">
@@ -432,6 +578,61 @@ export function GmailStyleEmailClient() {
                     </div>
                   ) : (
                     <div className="text-muted-foreground text-sm">Wählen Sie eine E-Mail aus</div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">KI-Labels</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {selectedEmail?.email_labels && selectedEmail.email_labels.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedEmail.email_labels.map((label) => {
+                        const labelInfo = getLabelInfo(label.label_type);
+                        const confidence = getConfidenceIndicator(label.confidence_score);
+                        return (
+                          <div key={label.id} className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant="outline" 
+                                className={`${labelInfo.color} text-xs px-2 py-1 flex items-center gap-1`}
+                              >
+                                <span>{labelInfo.icon}</span>
+                                <span>{labelInfo.text}</span>
+                              </Badge>
+                              {label.manually_overridden && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Manuell
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${confidence.color}`} title={`${confidence.percentage}% confidence`}>
+                                {confidence.symbol} {confidence.percentage}%
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 w-6 p-0"
+                                onClick={() => {
+                                  // TODO: Implement label change dropdown
+                                  const newLabel = prompt('Neues Label eingeben:');
+                                  if (newLabel) {
+                                    changeEmailLabel(selectedEmail.id, newLabel.toUpperCase());
+                                  }
+                                }}
+                              >
+                                ✏️
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">Keine AI-Labels verfügbar</div>
                   )}
                 </CardContent>
               </Card>

@@ -98,6 +98,7 @@ export type Database = {
           communication_style: Json | null
           created_at: string
           customer_id: number
+          customer_tier: string | null
           decision_factors: Json | null
           id: string
           last_analysis: string
@@ -114,6 +115,7 @@ export type Database = {
           communication_style?: Json | null
           created_at?: string
           customer_id: number
+          customer_tier?: string | null
           decision_factors?: Json | null
           id?: string
           last_analysis?: string
@@ -130,6 +132,7 @@ export type Database = {
           communication_style?: Json | null
           created_at?: string
           customer_id?: number
+          customer_tier?: string | null
           decision_factors?: Json | null
           id?: string
           last_analysis?: string
@@ -431,6 +434,50 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_labels: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          email_id: number
+          id: string
+          is_ai_generated: boolean
+          label_type: string
+          manually_overridden: boolean
+          metadata: Json | null
+          updated_at: string
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          email_id: number
+          id?: string
+          is_ai_generated?: boolean
+          label_type: string
+          manually_overridden?: boolean
+          metadata?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          email_id?: number
+          id?: string
+          is_ai_generated?: boolean
+          label_type?: string
+          manually_overridden?: boolean
+          metadata?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_labels_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "email_history"
             referencedColumns: ["id"]
           },
         ]
