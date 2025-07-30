@@ -89,13 +89,6 @@ export type Database = {
             referencedRelation: "email_history"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "ai_responses_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: false
-            referencedRelation: "email_intelligence_summary"
-            referencedColumns: ["id"]
-          },
         ]
       }
       customer_intelligence: {
@@ -317,13 +310,6 @@ export type Database = {
             columns: ["email_id"]
             isOneToOne: true
             referencedRelation: "email_history"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "email_analytics_email_id_fkey"
-            columns: ["email_id"]
-            isOneToOne: true
-            referencedRelation: "email_intelligence_summary"
             referencedColumns: ["id"]
           },
         ]
@@ -1334,35 +1320,41 @@ export type Database = {
       }
     }
     Views: {
-      email_intelligence_summary: {
-        Row: {
-          analysis_timestamp: string | null
-          brand: string | null
-          created_at: string | null
-          customer_company: string | null
-          customer_name: string | null
-          entities: Json | null
-          from_address: string | null
-          id: number | null
-          intent: string | null
-          intent_confidence: number | null
-          key_phrases: Json | null
-          language: string | null
-          next_best_action: string | null
-          opportunity_score: number | null
-          price_sensitivity: string | null
-          risk_score: number | null
-          sentiment: string | null
-          sentiment_score: number | null
-          subject: string | null
-          to_address: string | null
-          urgency: string | null
-          urgency_priority: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
+      get_email_intelligence_summary: {
+        Args: {
+          limit_count?: number
+          offset_count?: number
+          filter_intent?: string
+          filter_urgency?: string
+        }
+        Returns: {
+          id: number
+          subject: string
+          from_address: string
+          to_address: string
+          created_at: string
+          brand: string
+          language: string
+          sentiment: string
+          sentiment_score: number
+          intent: string
+          intent_confidence: number
+          urgency: string
+          urgency_priority: number
+          entities: Json
+          key_phrases: Json
+          analysis_timestamp: string
+          customer_name: string
+          customer_company: string
+          opportunity_score: number
+          risk_score: number
+          next_best_action: string
+          price_sensitivity: string
+        }[]
+      }
       is_date_range_processed: {
         Args: { p_account_id: string; p_start_date: string; p_end_date: string }
         Returns: boolean

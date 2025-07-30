@@ -270,16 +270,26 @@ export function EmailProcessingDashboard() {
       setIsProcessing(true);
       toast({
         title: "Processing Started",
-        description: "Smart email analysis pipeline activated",
+        description: "Smart email analysis pipeline activated with optimized database structure",
       });
 
-      const { data, error } = await supabase.functions.invoke('email-processor', {
-        body: { action: 'start', batchSize: 50 }
+      // Use the batch analyzer which works with the new system
+      const { data, error } = await supabase.functions.invoke('claude-batch-analyzer', {
+        body: { 
+          batchSize: 50,
+          forceReanalysis: false 
+        }
       });
       
       if (error) throw error;
       
       console.log('Processing started:', data);
+      
+      toast({
+        title: "Batch Analysis Started",
+        description: `Processing ${data.processed || 'emails'} with AI analysis - database optimized for fast queries`,
+      });
+
       // Refresh stats immediately
       loadProcessingStats();
     } catch (error) {
