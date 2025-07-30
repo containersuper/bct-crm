@@ -16,6 +16,7 @@ import QuoteManagement from "./pages/QuoteManagement";
 import CRMIntegration from "./pages/CRMIntegration";
 import AICRMDashboard from "./pages/AICRMDashboard";
 import EmailProcessing from "./pages/EmailProcessing";
+import EmailAnalytics from "./pages/EmailAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -64,11 +65,16 @@ const App = () => (
                     <AICRMDashboard />
                   </ProtectedRoute>
                 } />
-                <Route path="/email-processing" element={
-                  <ProtectedRoute>
-                    <EmailProcessing />
-                  </ProtectedRoute>
-                } />
+            <Route path="/email-processing" element={
+              <ProtectedRoute>
+                <EmailProcessing />
+              </ProtectedRoute>
+            } />
+            <Route path="/email-analytics" element={
+              <ProtectedRoute>
+                <EmailAnalytics />
+              </ProtectedRoute>
+            } />
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
                 <Route path="/auth/callback/gmail" element={<GmailOAuthCallback />} />
                 <Route path="/auth/callback/teamleader" element={<TeamLeaderAuthCallback />} />

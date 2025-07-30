@@ -20,6 +20,7 @@ export const Navigation = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/emails', label: 'Email Management', icon: Mail },
+    { path: '/email-analytics', label: 'Email Analytics', icon: Brain },
     { path: '/templates', label: 'Email Templates', icon: FileText },
     { path: '/quotes', label: 'Quote Management', icon: Calculator },
     { path: '/ai-crm', label: 'AI CRM', icon: Brain },
