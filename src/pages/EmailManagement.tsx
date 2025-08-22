@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { EmailInboxIntegrated } from "@/components/email/EmailInboxIntegrated";
 import { EnhancedLeadManager } from "@/components/ai/EnhancedLeadManager";
 import { QuoteDashboard } from "@/components/quotes/QuoteDashboard";
+import { AIAnalyticsDashboard } from "@/components/ai/AIAnalyticsDashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,12 +73,7 @@ export default function EmailManagement() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <div className="text-center p-8">
-            <h3 className="text-lg font-semibold mb-2">AI Analytics Dashboard</h3>
-            <p className="text-muted-foreground">
-              Advanced analytics and performance metrics coming soon...
-            </p>
-          </div>
+          <AIAnalyticsDashboard />
         </TabsContent>
       </Tabs>
     </div>
