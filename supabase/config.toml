@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.teamleader-test-pdf]
 verify_jwt = true
+
+[functions.claude-lead-analyzer]
+verify_jwt = true
