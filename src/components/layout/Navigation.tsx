@@ -25,6 +25,7 @@ export const Navigation = () => {
     { path: '/leads', label: 'Lead Management', icon: TrendingUp },
     { path: '/email-analytics', label: 'Email Analytics', icon: Brain },
     { path: '/templates', label: 'Email Templates', icon: FileText },
+    { path: '/quote-generator', label: 'Quote Generator', icon: Calculator },
     { path: '/quotes', label: 'Quote Management', icon: Calculator },
     { path: '/ai-crm', label: 'AI CRM', icon: Brain },
     { path: '/email-processing', label: 'Email Processing', icon: Brain },

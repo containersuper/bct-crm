@@ -21,6 +21,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import TestPage from "./pages/TestPage";
 import LeadManagement from "./pages/LeadManagement";
+import QuoteGenerator from "./pages/QuoteGenerator";
 
 const queryClient = new QueryClient();
 
@@ -51,8 +52,13 @@ const App = () => (
                   <ProtectedRoute>
                     <EmailTemplates />
                   </ProtectedRoute>
-                } />
-                <Route path="/quotes" element={
+                 } />
+                 <Route path="/quote-generator" element={
+                   <ProtectedRoute>
+                     <QuoteGenerator />
+                   </ProtectedRoute>
+                 } />
+                 <Route path="/quotes" element={
                   <ProtectedRoute>
                     <QuoteManagement />
                   </ProtectedRoute>
