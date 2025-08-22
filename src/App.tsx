@@ -19,6 +19,7 @@ import EmailProcessing from "./pages/EmailProcessing";
 import EmailAnalytics from "./pages/EmailAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import TestPage from "./pages/TestPage";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,8 @@ const App = () => (
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
                 <Route path="/auth/callback/gmail" element={<GmailOAuthCallback />} />
                 <Route path="/auth/callback/teamleader" element={<TeamLeaderAuthCallback />} />
+                <Route path="/test" element={<TestPage />} />
+                <Route path="/components/ai/SimpleEmailAI" element={<TestPage />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
