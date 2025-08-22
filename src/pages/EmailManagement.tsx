@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { EmailAccountManager } from "@/components/email/EmailAccountManager";
 import { EmailInboxIntegrated } from "@/components/email/EmailInboxIntegrated";
 import { EmailConnectionGuide } from "@/components/email/EmailConnectionGuide";
+import { RealEmailAI } from "@/components/ai/RealEmailAI";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -53,13 +54,18 @@ export default function EmailManagement() {
         />
       ) : (
         <Tabs defaultValue="inbox" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="inbox">Unified Inbox</TabsTrigger>
+            <TabsTrigger value="ai-analysis">AI Analysis</TabsTrigger>
             <TabsTrigger value="accounts">Account Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="inbox">
             <EmailInboxIntegrated />
+          </TabsContent>
+
+          <TabsContent value="ai-analysis">
+            <RealEmailAI />
           </TabsContent>
 
           <TabsContent value="accounts">
