@@ -80,6 +80,22 @@ export const EnhancedLeadManager = () => {
         title: "Analysis Complete",
         description: "Lead analysis has been completed successfully",
       })
+
+      // Check if this is a hot lead and trigger notification
+      const email = leads.find(l => l.id === emailId);
+      if (email?.email_analytics?.[0]?.urgency === 'high') {
+        await supabase.functions.invoke('notification-triggers', {
+          body: {
+            type: 'hot_lead_detected',
+            data: {
+              id: email.id,
+              customerName: email.from_address,
+              urgency: email.email_analytics[0].urgency,
+              intent: email.email_analytics[0].intent
+            }
+          }
+        });
+      }
       
       await loadLeads() // Refresh data
     } catch (error) {
@@ -108,6 +124,19 @@ export const EnhancedLeadManager = () => {
         title: "Quote Generated",
         description: `Quote ${data.quote.reference_number} has been generated successfully`,
       })
+
+      // Trigger notification for quote generation
+      const email = leads.find(l => l.id === emailId);
+      await supabase.functions.invoke('notification-triggers', {
+        body: {
+          type: 'quote_generated',
+          data: {
+            id: data.quote.id,
+            customerName: email?.from_address,
+            totalPrice: data.quote.total_price
+          }
+        }
+      });
       
       await loadLeads() // Refresh data
     } catch (error) {

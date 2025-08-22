@@ -759,6 +759,51 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          action_url: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          priority: string
+          read_at: string | null
+          title: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          action_url?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          title: string
+          type?: string
+          user_id?: string | null
+        }
+        Update: {
+          action_url?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          priority?: string
+          read_at?: string | null
+          title?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           ai_generated: boolean | null

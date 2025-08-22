@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { 
   LayoutDashboard, 
   Mail, 
@@ -68,9 +69,12 @@ export const Navigation = () => {
         </div>
         
         <div className="border-t border-border pt-4 space-y-2">
-          <div className="flex items-center space-x-3 px-3 py-2 text-sm text-muted-foreground">
-            <User className="h-4 w-4" />
-            <span>{user.email}</span>
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{user.email}</span>
+            </div>
+            <NotificationCenter />
           </div>
           <Button
             variant="ghost"
