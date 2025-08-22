@@ -50,3 +50,6 @@ verify_jwt = true
 
 [functions.claude-lead-analyzer]
 verify_jwt = true
+
+[functions.claude-quote-generator]
+verify_jwt = true

@@ -98,10 +98,15 @@ export const EnhancedLeadManager = () => {
     setGenerating(prev => ({ ...prev, [emailId]: true }))
     
     try {
-      // For now, we'll use the analysis from claude-lead-analyzer which includes auto-quote generation
+      const { data, error } = await supabase.functions.invoke('claude-quote-generator', {
+        body: { emailId }
+      })
+      
+      if (error) throw error
+      
       toast({
         title: "Quote Generated",
-        description: "Quote has been automatically generated based on AI analysis",
+        description: `Quote ${data.quote.reference_number} has been generated successfully`,
       })
       
       await loadLeads() // Refresh data

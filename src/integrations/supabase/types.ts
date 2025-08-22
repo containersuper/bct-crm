@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -90,6 +90,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      container_pricing: {
+        Row: {
+          base_price: number
+          container_type: string
+          created_at: string
+          currency: string | null
+          handling_fee: number
+          id: string
+          market_conditions: Json | null
+          route_from: string
+          route_to: string
+          transport_cost: number
+          updated_at: string
+          valid_from: string
+          valid_until: string | null
+        }
+        Insert: {
+          base_price: number
+          container_type: string
+          created_at?: string
+          currency?: string | null
+          handling_fee: number
+          id?: string
+          market_conditions?: Json | null
+          route_from: string
+          route_to: string
+          transport_cost: number
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Update: {
+          base_price?: number
+          container_type?: string
+          created_at?: string
+          currency?: string | null
+          handling_fee?: number
+          id?: string
+          market_conditions?: Json | null
+          route_from?: string
+          route_to?: string
+          transport_cost?: number
+          updated_at?: string
+          valid_from?: string
+          valid_until?: string | null
+        }
+        Relationships: []
       }
       customer_intelligence: {
         Row: {
@@ -713,36 +761,60 @@ export type Database = {
       }
       quotes: {
         Row: {
+          ai_generated: boolean | null
+          ai_reasoning: Json | null
+          brand: string | null
+          content: string | null
           created_at: string | null
           customer_id: number | null
           discount: number | null
+          email_id: number | null
           id: number
           items: Json | null
           pdf_url: string | null
+          pricing_breakdown: Json | null
           quote_number: string
+          reference_number: string | null
           status: string | null
+          terms: Json | null
           total_price: number | null
         }
         Insert: {
+          ai_generated?: boolean | null
+          ai_reasoning?: Json | null
+          brand?: string | null
+          content?: string | null
           created_at?: string | null
           customer_id?: number | null
           discount?: number | null
+          email_id?: number | null
           id?: number
           items?: Json | null
           pdf_url?: string | null
+          pricing_breakdown?: Json | null
           quote_number: string
+          reference_number?: string | null
           status?: string | null
+          terms?: Json | null
           total_price?: number | null
         }
         Update: {
+          ai_generated?: boolean | null
+          ai_reasoning?: Json | null
+          brand?: string | null
+          content?: string | null
           created_at?: string | null
           customer_id?: number | null
           discount?: number | null
+          email_id?: number | null
           id?: number
           items?: Json | null
           pdf_url?: string | null
+          pricing_breakdown?: Json | null
           quote_number?: string
+          reference_number?: string | null
           status?: string | null
+          terms?: Json | null
           total_price?: number | null
         }
         Relationships: [
@@ -1372,38 +1444,38 @@ export type Database = {
     Functions: {
       get_email_intelligence_summary: {
         Args: {
-          limit_count?: number
-          offset_count?: number
           filter_intent?: string
           filter_urgency?: string
+          limit_count?: number
+          offset_count?: number
         }
         Returns: {
-          id: number
-          subject: string
-          from_address: string
-          to_address: string
-          created_at: string
+          analysis_timestamp: string
           brand: string
-          language: string
-          sentiment: string
-          sentiment_score: number
+          created_at: string
+          customer_company: string
+          customer_name: string
+          entities: Json
+          from_address: string
+          id: number
           intent: string
           intent_confidence: number
+          key_phrases: Json
+          language: string
+          next_best_action: string
+          opportunity_score: number
+          price_sensitivity: string
+          risk_score: number
+          sentiment: string
+          sentiment_score: number
+          subject: string
+          to_address: string
           urgency: string
           urgency_priority: number
-          entities: Json
-          key_phrases: Json
-          analysis_timestamp: string
-          customer_name: string
-          customer_company: string
-          opportunity_score: number
-          risk_score: number
-          next_best_action: string
-          price_sensitivity: string
         }[]
       }
       is_date_range_processed: {
-        Args: { p_account_id: string; p_start_date: string; p_end_date: string }
+        Args: { p_account_id: string; p_end_date: string; p_start_date: string }
         Returns: boolean
       }
       refresh_email_intelligence: {
@@ -1411,17 +1483,17 @@ export type Database = {
         Returns: undefined
       }
       start_email_processing: {
-        Args: { p_job_type: string; p_batch_size?: number }
+        Args: { p_batch_size?: number; p_job_type: string }
         Returns: string
       }
       update_processing_job: {
         Args: {
-          p_job_id: string
-          p_status: string
           p_emails_processed?: number
-          p_success_count?: number
           p_error_count?: number
           p_error_details?: Json
+          p_job_id: string
+          p_status: string
+          p_success_count?: number
         }
         Returns: undefined
       }
