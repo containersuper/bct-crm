@@ -10,7 +10,8 @@ import {
   Users,
   Brain,
   LogOut,
-  User
+  User,
+  TrendingUp
 } from 'lucide-react';
 
 export const Navigation = () => {
@@ -20,6 +21,7 @@ export const Navigation = () => {
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/emails', label: 'Email Management', icon: Mail },
+    { path: '/leads', label: 'Lead Management', icon: TrendingUp },
     { path: '/email-analytics', label: 'Email Analytics', icon: Brain },
     { path: '/templates', label: 'Email Templates', icon: FileText },
     { path: '/quotes', label: 'Quote Management', icon: Calculator },

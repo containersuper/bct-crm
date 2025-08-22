@@ -20,6 +20,7 @@ import EmailAnalytics from "./pages/EmailAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import TestPage from "./pages/TestPage";
+import LeadManagement from "./pages/LeadManagement";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +75,11 @@ const App = () => (
             <Route path="/email-analytics" element={
               <ProtectedRoute>
                 <EmailAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/leads" element={
+              <ProtectedRoute>
+                <LeadManagement />
               </ProtectedRoute>
             } />
                 <Route path="/oauth/gmail/callback" element={<GmailOAuthCallback />} />
