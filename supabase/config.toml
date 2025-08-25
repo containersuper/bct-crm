@@ -59,3 +59,12 @@ verify_jwt = false
 
 [functions.send-quote-email]
 verify_jwt = false
+
+[functions.teamleader-smart-sync]
+verify_jwt = true
+
+[functions.claude-smart-pricing]
+verify_jwt = true
+
+[functions.claude-predictive-sales]
+verify_jwt = true

@@ -34,34 +34,68 @@ serve(async (req) => {
       throw new Error('Customer not found');
     }
 
-    // Get customer's email history with analytics
-    const { data: emails, error: emailsError } = await supabase
-      .from('email_history')
-      .select(`
-        *,
-        email_analytics (*)
-      `)
-      .or(`from_address.eq.${customer.email},to_address.eq.${customer.email}`)
-      .order('received_at', { ascending: false })
-      .limit(50);
+    // Get comprehensive customer data including TeamLeader history
+    const [emails, quotes, teamleaderInvoices, teamleaderQuotes, teamleaderDeals, teamleaderActivities] = await Promise.all([
+      // Email history with analytics
+      supabase
+        .from('email_history')
+        .select(`
+          *,
+          email_analytics (*)
+        `)
+        .or(`from_address.eq.${customer.email},to_address.eq.${customer.email}`)
+        .order('received_at', { ascending: false })
+        .limit(50),
+      
+      // BCT quotes
+      supabase
+        .from('quotes')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false }),
+        
+      // TeamLeader invoice history (actual payments and behavior)
+      supabase
+        .from('teamleader_invoices')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('invoice_date', { ascending: false })
+        .limit(30),
+        
+      // TeamLeader quote history (pricing patterns)
+      supabase
+        .from('teamleader_quotes')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('quote_date', { ascending: false })
+        .limit(20),
+        
+      // TeamLeader deal history (sales patterns)
+      supabase
+        .from('teamleader_deals')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('expected_closing_date', { ascending: false })
+        .limit(15),
+        
+      // TeamLeader activity history (interaction patterns)
+      supabase
+        .from('teamleader_activities')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('starts_at', { ascending: false })
+        .limit(50)
+    ]);
 
-    if (emailsError) {
-      console.error('Error fetching emails:', emailsError);
+    if (emails.error) {
+      console.error('Error fetching emails:', emails.error);
+    }
+    if (quotes.error) {
+      console.error('Error fetching quotes:', quotes.error);
     }
 
-    // Get customer's quotes
-    const { data: quotes, error: quotesError } = await supabase
-      .from('quotes')
-      .select('*')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false });
-
-    if (quotesError) {
-      console.error('Error fetching quotes:', quotesError);
-    }
-
-    // Prepare data for Claude analysis
-    const emailsData = emails?.map(email => ({
+    // Prepare comprehensive data for Claude analysis with TeamLeader intelligence
+    const emailsData = emails.data?.map(email => ({
       subject: email.subject,
       sentiment: email.email_analytics?.[0]?.sentiment,
       intent: email.email_analytics?.[0]?.intent,
@@ -72,13 +106,46 @@ serve(async (req) => {
       body_preview: email.body?.substring(0, 200) + '...'
     })) || [];
 
-    const quotesData = quotes?.map(quote => ({
+    const quotesData = quotes.data?.map(quote => ({
       quote_number: quote.quote_number,
       total_price: quote.total_price,
       status: quote.status,
       created_at: quote.created_at,
       items: quote.items
     })) || [];
+
+    // TeamLeader data for comprehensive analysis
+    const teamleaderData = {
+      invoices: teamleaderInvoices.data?.map(inv => ({
+        invoice_number: inv.invoice_number,
+        total_price: inv.total_price,
+        invoice_date: inv.invoice_date,
+        payment_date: inv.payment_date,
+        status: inv.status,
+        title: inv.title
+      })) || [],
+      quotes: teamleaderQuotes.data?.map(quote => ({
+        quote_number: quote.quote_number,
+        total_price: quote.total_price,
+        quote_date: quote.quote_date,
+        status: quote.status,
+        title: quote.title
+      })) || [],
+      deals: teamleaderDeals.data?.map(deal => ({
+        title: deal.title,
+        value: deal.value,
+        probability: deal.probability,
+        phase: deal.phase,
+        expected_closing_date: deal.expected_closing_date,
+        actual_closing_date: deal.actual_closing_date
+      })) || [],
+      activities: teamleaderActivities.data?.map(activity => ({
+        type: activity.activity_type,
+        subject: activity.subject,
+        starts_at: activity.starts_at,
+        status: activity.status
+      })) || []
+    };
 
     // Call Claude API for intelligence analysis
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
@@ -87,20 +154,36 @@ serve(async (req) => {
     }
 
     const analysisPrompt = `
-Analyze this customer's data and generate comprehensive business intelligence. Provide insights in JSON format.
+You are BCT's AI intelligence expert with complete access to this customer's TeamLeader CRM history. Analyze ALL available data for comprehensive business intelligence.
 
-Customer Information:
+CUSTOMER PROFILE:
 Name: ${customer.name}
 Company: ${customer.company || 'Individual'}
 Email: ${customer.email}
 Phone: ${customer.phone || 'Not provided'}
 Brand: ${customer.brand || 'Not specified'}
+TeamLeader ID: ${customer.teamleader_id || 'Not linked'}
 
-Email History (${emailsData.length} emails):
+EMAIL COMMUNICATION HISTORY (${emailsData.length} emails):
 ${JSON.stringify(emailsData, null, 2)}
 
-Quote History (${quotesData.length} quotes):
+BCT QUOTE HISTORY (${quotesData.length} quotes):
 ${JSON.stringify(quotesData, null, 2)}
+
+COMPLETE TEAMLEADER CRM HISTORY:
+=================================
+
+INVOICE HISTORY (${teamleaderData.invoices.length} invoices - ACTUAL PAYMENT BEHAVIOR):
+${JSON.stringify(teamleaderData.invoices, null, 2)}
+
+TEAMLEADER QUOTE HISTORY (${teamleaderData.quotes.length} quotes - PRICING PATTERNS):
+${JSON.stringify(teamleaderData.quotes, null, 2)}
+
+DEAL PIPELINE HISTORY (${teamleaderData.deals.length} deals - SALES PATTERNS):
+${JSON.stringify(teamleaderData.deals, null, 2)}
+
+ACTIVITY & INTERACTION HISTORY (${teamleaderData.activities.length} activities - RELATIONSHIP PATTERNS):
+${JSON.stringify(teamleaderData.activities, null, 2)}
 
 Generate a detailed analysis in this exact JSON format:
 {
@@ -133,7 +216,16 @@ Generate a detailed analysis in this exact JSON format:
   ]
 }
 
-Base your analysis on actual data patterns. If insufficient data, indicate this in the summary.
+Base your analysis on actual TeamLeader data patterns:
+1. Payment behavior from invoice history (when they pay, how much, payment delays)
+2. Pricing acceptance from quote conversion rates
+3. Sales cycle patterns from deal progression
+4. Relationship quality from activity frequency and types
+5. Seasonal patterns from historical order timing
+6. Growth trends from value progression over time
+7. Risk indicators from payment and communication patterns
+
+This customer has ${teamleaderData.invoices.length + teamleaderData.quotes.length + teamleaderData.deals.length + teamleaderData.activities.length} TeamLeader data points for analysis. Use this comprehensive history to provide accurate, data-driven intelligence.
     `;
 
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {

@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { TeamLeaderConnection } from "@/components/crm/TeamLeaderConnection";
+import { EnhancedTeamLeaderSync } from "@/components/crm/EnhancedTeamLeaderSync";
 import { TeamLeaderAuthCallback } from "@/components/crm/TeamLeaderAuthCallback";
 import { TeamLeaderPDFManager } from "@/components/crm/TeamLeaderPDFManager";
 
@@ -22,9 +22,7 @@ export default function CRMIntegration() {
       </div>
       
       <div className="space-y-8">
-        <div className="max-w-2xl">
-          <TeamLeaderConnection />
-        </div>
+        <EnhancedTeamLeaderSync />
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <TeamLeaderPDFManager type="invoices" title="Invoice" />

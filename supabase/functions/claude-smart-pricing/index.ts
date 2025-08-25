@@ -16,13 +16,13 @@ serve(async (req) => {
       customerId, 
       quoteItems, 
       route, 
-      urgency = 'normal',
-      competitorPrice,
-      targetMargin = 15
+      urgency, 
+      competitorPrice, 
+      targetMargin 
     } = await req.json();
     
-    if (!customerId || !quoteItems) {
-      throw new Error('Customer ID and quote items are required');
+    if (!customerId) {
+      throw new Error('Customer ID is required');
     }
 
     // Initialize Supabase client
@@ -30,7 +30,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get customer intelligence
+    // Get customer data with TeamLeader intelligence
     const { data: customer, error: customerError } = await supabase
       .from('customers')
       .select(`
@@ -44,125 +44,145 @@ serve(async (req) => {
       throw new Error('Customer not found');
     }
 
-    // Get historical quotes for this customer
-    const { data: historicalQuotes, error: quotesError } = await supabase
-      .from('quotes')
+    // Get customer's historical TeamLeader invoices for pricing intelligence
+    const { data: historicalInvoices } = await supabase
+      .from('teamleader_invoices')
       .select('*')
       .eq('customer_id', customerId)
-      .order('created_at', { ascending: false })
+      .order('invoice_date', { ascending: false })
+      .limit(20);
+
+    // Get customer's TeamLeader quotes for pricing patterns
+    const { data: historicalQuotes } = await supabase
+      .from('teamleader_quotes')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('quote_date', { ascending: false })
       .limit(10);
 
-    if (quotesError) {
-      console.error('Error fetching quotes:', quotesError);
-    }
-
-    // Get market data (similar quotes for pricing context)
-    const { data: marketQuotes, error: marketError } = await supabase
-      .from('quotes')
-      .select('total_price, items, status, created_at')
-      .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()) // Last 90 days
+    // Get similar routes and pricing from recent market data
+    const { data: marketData } = await supabase
+      .from('teamleader_invoices')
+      .select('*')
+      .ilike('title', `%${route}%`)
+      .order('invoice_date', { ascending: false })
       .limit(50);
 
-    if (marketError) {
-      console.error('Error fetching market data:', marketError);
-    }
+    // Get customer's deal history for win/loss analysis
+    const { data: dealHistory } = await supabase
+      .from('teamleader_deals')
+      .select('*')
+      .eq('customer_id', customerId)
+      .order('actual_closing_date', { ascending: false })
+      .limit(10);
 
-    // Prepare data for Claude analysis
+    // Prepare comprehensive data for Claude analysis
     const customerIntelligence = customer.customer_intelligence?.[0];
-    const customerData = {
-      name: customer.name,
-      company: customer.company,
-      price_sensitivity: customerIntelligence?.price_sensitivity || 'medium',
-      lifetime_value: customerIntelligence?.lifetime_value || 0,
-      risk_score: customerIntelligence?.risk_score || 0.5,
-      opportunity_score: customerIntelligence?.opportunity_score || 0.5,
-      business_patterns: customerIntelligence?.business_patterns || {}
+    
+    const pricingContext = {
+      customer: {
+        name: customer.name,
+        company: customer.company,
+        intelligence: customerIntelligence,
+      },
+      historicalPricing: {
+        invoices: historicalInvoices?.map(inv => ({
+          total: inv.total_price,
+          date: inv.invoice_date,
+          title: inv.title,
+          status: inv.status
+        })) || [],
+        quotes: historicalQuotes?.map(quote => ({
+          total: quote.total_price,
+          date: quote.quote_date,
+          title: quote.title,
+          status: quote.status
+        })) || [],
+      },
+      marketData: marketData?.map(inv => ({
+        total: inv.total_price,
+        date: inv.invoice_date,
+        title: inv.title
+      })) || [],
+      dealHistory: dealHistory?.map(deal => ({
+        value: deal.value,
+        probability: deal.probability,
+        phase: deal.phase,
+        status: deal.actual_closing_date ? 'won' : 'pending'
+      })) || [],
+      currentQuote: {
+        items: quoteItems,
+        route,
+        urgency,
+        competitorPrice,
+        targetMargin
+      }
     };
 
-    const historicalData = historicalQuotes?.map(quote => ({
-      quote_number: quote.quote_number,
-      total_price: quote.total_price,
-      status: quote.status,
-      items: quote.items,
-      created_at: quote.created_at
-    })) || [];
-
-    // Call Claude API for pricing analysis
+    // Call Claude API for smart pricing analysis
     const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
     if (!anthropicApiKey) {
       throw new Error('Anthropic API key not configured');
     }
 
     const pricingPrompt = `
-You are a pricing expert for a logistics company. Generate optimal pricing recommendations based on customer intelligence and market data.
+You are BCT's AI pricing expert with complete knowledge of this customer's history from TeamLeader.
 
-Customer Profile:
-${JSON.stringify(customerData, null, 2)}
+CUSTOMER PROFILE:
+${JSON.stringify(pricingContext.customer, null, 2)}
 
-Quote Requirements:
-Items: ${JSON.stringify(quoteItems, null, 2)}
-Route: ${route || 'Not specified'}
+HISTORICAL TEAMLEADER DATA:
+Previous Invoices (what they actually paid): ${JSON.stringify(pricingContext.historicalPricing.invoices, null, 2)}
+Previous Quotes: ${JSON.stringify(pricingContext.historicalPricing.quotes, null, 2)}
+Deal Success History: ${JSON.stringify(pricingContext.dealHistory, null, 2)}
+
+MARKET INTELLIGENCE:
+Similar route pricing from other customers: ${JSON.stringify(pricingContext.marketData, null, 2)}
+
+CURRENT QUOTE REQUEST:
+Route: ${route}
+Items: ${JSON.stringify(quoteItems)}
 Urgency: ${urgency}
-Target Margin: ${targetMargin}%
 Competitor Price: ${competitorPrice || 'Not provided'}
+Target Margin: ${targetMargin || 'Not specified'}%
 
-Historical Customer Quotes:
-${JSON.stringify(historicalData, null, 2)}
+Based on this complete TeamLeader history and customer intelligence, provide smart pricing recommendations in JSON format:
 
-Market Context (Recent similar quotes):
-${JSON.stringify(marketQuotes?.slice(0, 10), null, 2)}
-
-Generate pricing recommendations in this exact JSON format:
 {
-  "recommended_price": 0,
-  "price_range": {
-    "minimum": 0,
-    "maximum": 0,
-    "optimal": 0
+  "recommendedPrice": 0,
+  "winProbability": 0.0,
+  "margin": 0.0,
+  "confidence": 0.0,
+  "pricingStrategy": "value_based/competitive/premium/penetration",
+  "reasoning": {
+    "customerHistory": "Analysis of their payment patterns from TeamLeader invoices",
+    "marketPosition": "How this price compares to market rates for similar routes",
+    "riskFactors": ["Any risks based on their deal history"],
+    "opportunities": ["Upselling opportunities based on past orders"]
   },
-  "win_probability": 0.0,
-  "margin_analysis": {
-    "target_margin": 0,
-    "actual_margin": 0,
-    "margin_vs_target": 0
-  },
-  "pricing_factors": [
+  "alternatives": [
     {
-      "factor": "Customer loyalty",
-      "impact": "positive/negative/neutral",
-      "weight": 0.0,
-      "description": "Explanation"
+      "price": 0,
+      "strategy": "Strategy name",
+      "winProbability": 0.0,
+      "reasoning": "Why this alternative might work"
     }
   ],
-  "competitive_position": "above/at/below market",
-  "pricing_strategy": "premium/competitive/aggressive",
-  "volume_discounts": [
-    {
-      "threshold": 0,
-      "discount_percentage": 0,
-      "new_price": 0
-    }
-  ],
-  "recommendations": [
-    "Specific pricing recommendation 1",
-    "Specific pricing recommendation 2"
-  ],
-  "risk_assessment": {
-    "price_rejection_risk": "low/medium/high",
-    "margin_erosion_risk": "low/medium/high",
-    "customer_retention_impact": "positive/neutral/negative"
-  },
-  "explanation": "Detailed explanation of the pricing logic and key factors"
+  "negotiationInsights": {
+    "priceFlexibility": "high/medium/low based on their history",
+    "keyDecisionFactors": ["What matters most to this customer"],
+    "bestApproach": "How to present this pricing based on their communication style"
+  }
 }
 
 Consider:
-1. Customer's price sensitivity and historical behavior
-2. Market positioning and competitor pricing
-3. Urgency and service level requirements
-4. Customer lifetime value and relationship strength
-5. Seasonal patterns and market conditions
-6. Risk factors and margin protection
-    `;
+1. Their actual payment history from TeamLeader invoices
+2. Success rate of previous deals at different price points
+3. Seasonal patterns in their ordering
+4. Price sensitivity from customer intelligence
+5. Market rates for similar routes
+6. Their negotiation patterns from deal history
+`;
 
     const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -173,7 +193,7 @@ Consider:
       },
       body: JSON.stringify({
         model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 2500,
+        max_tokens: 3000,
         messages: [
           {
             role: 'user',
@@ -199,7 +219,7 @@ Consider:
       throw new Error('Invalid response from Claude');
     }
 
-    // Log performance metric
+    // Log successful pricing analysis
     await supabase
       .from('ai_performance_metrics')
       .insert({
@@ -207,16 +227,22 @@ Consider:
         metric_value: 1,
         context: { 
           customer_id: customerId,
-          recommended_price: pricingAnalysis.recommended_price,
-          win_probability: pricingAnalysis.win_probability,
-          strategy: pricingAnalysis.pricing_strategy
+          route,
+          recommended_price: pricingAnalysis.recommendedPrice,
+          confidence: pricingAnalysis.confidence
         }
       });
 
     return new Response(
       JSON.stringify({
         success: true,
-        pricing: pricingAnalysis
+        pricing: pricingAnalysis,
+        dataUsed: {
+          historicalInvoices: pricingContext.historicalPricing.invoices.length,
+          historicalQuotes: pricingContext.historicalPricing.quotes.length,
+          marketComparisons: pricingContext.marketData.length,
+          dealHistory: pricingContext.dealHistory.length
+        }
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
